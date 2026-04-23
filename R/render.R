@@ -58,6 +58,11 @@ render <- function(
   }
 
   output_options <- list(pandoc_args = c("--metadata=title:", "--metadata=abstract:"))
+  resdoc_preprocess_state <- NULL
+  if (type == "resdoc") {
+    resdoc_preprocess_state <- inject_resdoc_frontmatter_text(index_fn = "index.Rmd", yaml_fn = config_file)
+    on.exit(restore_injected_resdoc_frontmatter_text(resdoc_preprocess_state), add = TRUE)
+  }
 
   cli_inform("Rendering document with bookdown...")
   bookdown::render_book("index.Rmd",

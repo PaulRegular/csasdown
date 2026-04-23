@@ -1,5 +1,11 @@
 # csasdown development version
 
+## csasdown 0.0.0.90021
+
+* Add resdoc pre-processing that injects YAML frontmatter text and abstract tags
+  into the first `_bookdown.yml` Rmd file during rendering, then restores the
+  original user-authored content afterward.
+
 ## csasdown 0.0.0.90020
 
 * Fix resdoc frontmatter region and year substitution by replacing the

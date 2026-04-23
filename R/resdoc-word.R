@@ -190,3 +190,83 @@ add_resdoc_word_frontmatter2 <- function(index_fn, yaml_fn = "_bookdown.yml", ve
 
   invisible()
 }
+
+inject_resdoc_frontmatter_text <- function(index_fn = "index.Rmd", yaml_fn = "_bookdown.yml") {
+  x <- rmarkdown::yaml_front_matter(index_fn)
+  parsed <- parse_author_field(x$author)
+  x$english_author <- parsed$english_author
+  x$french_author <- parsed$french_author
+  x$english_author_list <- parsed$english_author_list
+  x$french_author_list <- parsed$french_author_list
+
+  french <- isTRUE(x$output[[1]]$french)
+
+  title <- if (french) x$french_title else x$english_title
+  authors <- if (french) x$french_author else x$english_author
+  address <- if (french) x$french_address else x$english_address
+
+  y <- yaml::read_yaml(yaml_fn)
+  first_rmd <- y$rmd_files[[1]]
+
+  original_lines <- readLines(first_rmd, warn = FALSE)
+  if (length(original_lines) == 0) {
+    stop(sprintf("No content found in '%s'.", first_rmd))
+  }
+
+  text_or_empty <- function(value) {
+    if (is.null(value)) "" else as.character(value)
+  }
+
+  build_tagged_block <- function(tag, value) {
+    c(paste0("START:", tag), text_or_empty(value), paste0("END:", tag), "")
+  }
+
+  frontmatter_lines <- c(
+    build_tagged_block("title", title),
+    build_tagged_block("authors", authors),
+    build_tagged_block("address", address),
+    build_tagged_block("english_authors_list", x$english_author_list),
+    build_tagged_block("year_english_reference1", x$year),
+    build_tagged_block("year_english_reference", x$year),
+    build_tagged_block("english_title", x$english_title),
+    build_tagged_block("french_authors_list", x$french_author_list),
+    build_tagged_block("year_french_reference1", x$year),
+    build_tagged_block("year_french_reference", x$year),
+    build_tagged_block("french_title", x$french_title)
+  )
+
+  heading_pat <- "^#\\s*(ABSTRACT|R\u00c9SUM\u00c9|RESUME)\\s*$"
+  abstract_heading_i <- which(grepl(heading_pat, original_lines, ignore.case = TRUE))
+
+  processed_lines <- original_lines
+  if (length(abstract_heading_i) > 0) {
+    heading_i <- abstract_heading_i[[1]]
+    remaining <- if (heading_i < length(processed_lines)) {
+      processed_lines[(heading_i + 1):length(processed_lines)]
+    } else {
+      character()
+    }
+    next_h1_rel <- which(grepl("^#\\s+", remaining))
+    next_h1_i <- if (length(next_h1_rel) > 0) heading_i + next_h1_rel[[1]] else length(processed_lines) + 1
+    abstract_body <- if (heading_i + 1 <= next_h1_i - 1) processed_lines[(heading_i + 1):(next_h1_i - 1)] else character()
+    abstract_tagged <- c("START:abstract", abstract_body, "END:abstract")
+    suffix <- if (next_h1_i <= length(processed_lines)) processed_lines[next_h1_i:length(processed_lines)] else character()
+    processed_lines <- c(
+      processed_lines[seq_len(heading_i - 1)],
+      abstract_tagged,
+      suffix
+    )
+  }
+
+  writeLines(c(frontmatter_lines, processed_lines), con = first_rmd)
+
+  list(file = first_rmd, original_lines = original_lines)
+}
+
+restore_injected_resdoc_frontmatter_text <- function(state) {
+  if (is.null(state$file) || is.null(state$original_lines)) {
+    return(invisible())
+  }
+  writeLines(state$original_lines, con = state$file)
+  invisible()
+}
