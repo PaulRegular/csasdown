@@ -101,20 +101,35 @@ local function is_french(meta)
   end
 
   local output = meta.output
-  if output == nil or pandoc.utils.type(output) ~= "MetaMap" then
+  if output == nil then
     return false
   end
 
-  local output_map = output
-  for key, value in pairs(output_map) do
-    if tostring(key):find("resdoc_docx", 1, true) and pandoc.utils.type(value) == "MetaMap" then
+  local function has_french_true(value)
+    local value_type = pandoc.utils.type(value)
+
+    if value_type == "MetaMap" then
       if meta_bool(value.french) then
         return true
       end
+
+      for _, nested in pairs(value) do
+        if has_french_true(nested) then
+          return true
+        end
+      end
+    elseif value_type == "MetaList" then
+      for _, nested in ipairs(value) do
+        if has_french_true(nested) then
+          return true
+        end
+      end
     end
+
+    return false
   end
 
-  return false
+  return has_french_true(output)
 end
 
 local function styled_block(kind, markdown, style_map)
