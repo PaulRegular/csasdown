@@ -1,5 +1,5 @@
-local START_PREFIX = "[[CSAS-FM-START:"
-local END_PREFIX = "[[CSAS-FM-END:"
+local START_PREFIX = "START:"
+local END_PREFIX = "END:"
 
 local STYLE_MAP_EN = {
   title = "Cover: Document title",
@@ -22,7 +22,7 @@ local function marker_block(kind, phase)
   if phase == "end" then
     prefix = END_PREFIX
   end
-  return pandoc.Para({ pandoc.Str(prefix .. kind .. "]]" ) })
+  return pandoc.Para({ pandoc.Str(prefix .. kind) })
 end
 
 local function meta_to_markdown(value)

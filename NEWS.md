@@ -1,5 +1,9 @@
 # csasdown development version
 
+## csasdown 0.0.0.90024
+
+* Simplify Lua frontmatter marker tags to `START:<field>`/`END:<field>` and update resdoc frontmatter tests accordingly to avoid escaped bracket matching issues in markdown output.
+
 ## csasdown 0.0.0.90023
 
 * Make resdoc frontmatter Lua injection language-aware: select English or French metadata fields based on `french: true/false` and apply the matching cover style names from the corresponding frontmatter template.
