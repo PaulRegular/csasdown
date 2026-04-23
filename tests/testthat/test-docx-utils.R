@@ -95,7 +95,6 @@ test_that("move_text moves multi-paragraph content within a document", {
   csasdown:::move_text(docx, c(title = "title"))
 
   doc_xml <- read_document_xml(docx)
-  style_after <- extract_bookmark_style(doc_xml, "title")
 
   expect_false(grepl("START:title", doc_xml, fixed = TRUE))
   expect_false(grepl("END:title", doc_xml, fixed = TRUE))
@@ -104,7 +103,6 @@ test_that("move_text moves multi-paragraph content within a document", {
   expect_true(grepl("before", doc_xml, fixed = TRUE))
   expect_true(grepl("after", doc_xml, fixed = TRUE))
   if (nzchar(style_before)) {
-    expect_identical(style_after, style_before)
     expect_true(grepl(sprintf('<w:pStyle w:val="%s"/>', style_before), doc_xml, fixed = TRUE))
   }
 })

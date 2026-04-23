@@ -1,5 +1,11 @@
 # csasdown development version
 
+## csasdown 0.0.0.90027
+
+* Fix `move_text()` output corruption by replacing the bookmark-containing
+  paragraph with moved block content, avoiding invalid paragraph nesting inside
+  bookmarks that could cause Word open errors.
+
 ## csasdown 0.0.0.90026
 
 * Fix `move_text()` marker-boundary detection to avoid false "Marker order is

@@ -1117,18 +1117,18 @@ move_text <- function(docx_path, moves) {
       substr(doc_xml, remove_end + 1L, nchar(doc_xml))
     )
 
-    bookmark_pattern <- sprintf(
-      '(?s)(<w:bookmarkStart[^>]*w:name="%s"[^>]*/>)(.*?)(<w:bookmarkEnd[^>]*/>)',
+    bookmark_paragraph_pattern <- sprintf(
+      '(?s)<w:p\\b.*?<w:bookmarkStart[^>]*w:name="%s"[^>]*/>.*?<w:bookmarkEnd[^>]*/>.*?</w:p>',
       bookmark
     )
-    bookmark_match <- regmatches(doc_xml, regexpr(bookmark_pattern, doc_xml, perl = TRUE))
-    if (!length(bookmark_match) || !nzchar(bookmark_match)) {
+    bookmark_paragraph <- regmatches(doc_xml, regexpr(bookmark_paragraph_pattern, doc_xml, perl = TRUE))
+    if (!length(bookmark_paragraph) || !nzchar(bookmark_paragraph)) {
       stop(sprintf("Bookmark '%s' not found in document.", bookmark), call. = FALSE)
     }
 
     style_match <- regmatches(
-      bookmark_match,
-      regexpr('<w:pStyle\\s+w:val="([^"]+)"\\s*/>', bookmark_match, perl = TRUE)
+      bookmark_paragraph,
+      regexpr('<w:pStyle\\s+w:val="([^"]+)"\\s*/>', bookmark_paragraph, perl = TRUE)
     )
     style_id <- if (length(style_match) && nzchar(style_match)) {
       sub('.*w:val="([^"]+)".*', "\\1", style_match)
@@ -1136,7 +1136,7 @@ move_text <- function(docx_path, moves) {
       ""
     }
     moved_block <- apply_par_style(moved_block, style_id)
-    doc_xml <- sub(bookmark_pattern, paste0("\\1", moved_block, "\\3"), doc_xml, perl = TRUE)
+    doc_xml <- sub(bookmark_paragraph_pattern, moved_block, doc_xml, perl = TRUE)
   }
 
   writeLines(doc_xml, xml_path)
