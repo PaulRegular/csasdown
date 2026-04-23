@@ -1,5 +1,9 @@
 # csasdown development version
 
+## csasdown 0.0.0.90023
+
+* Make resdoc frontmatter Lua injection language-aware: select English or French metadata fields based on `french: true/false` and apply the matching cover style names from the corresponding frontmatter template.
+
 ## csasdown 0.0.0.90022
 
 * Fix resdoc frontmatter Lua injection to read bilingual YAML keys (`english_*`/`french_*`) used by templates, ensuring title/address/citations/abstract marker blocks are generated during render.

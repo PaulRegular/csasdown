@@ -1,10 +1,18 @@
 local START_PREFIX = "[[CSAS-FM-START:"
 local END_PREFIX = "[[CSAS-FM-END:"
 
-local STYLE_MAP = {
+local STYLE_MAP_EN = {
   title = "Cover: Document title",
   authors = "Cover: Author",
   address = "Cover: Address",
+  citations = "citation",
+  abstract = "Body Text"
+}
+
+local STYLE_MAP_FR = {
+  title = "Couverture : titre du document",
+  authors = "Couverture : auteurs",
+  address = "Couverture : adresse",
   citations = "citation",
   abstract = "Body Text"
 }
@@ -69,37 +77,53 @@ local function first_non_nil(meta, keys)
   return nil
 end
 
-local function combine_non_nil(meta, keys)
-  local values = {}
-  for _, key in ipairs(keys) do
-    local value = meta[key]
-    if value ~= nil then
-      table.insert(values, value)
+local function meta_bool(value)
+  if value == nil then
+    return false
+  end
+
+  local t = pandoc.utils.type(value)
+  if t == "MetaBool" then
+    return value
+  end
+
+  if t == "MetaString" then
+    local lowered = tostring(value):lower()
+    return lowered == "true"
+  end
+
+  return false
+end
+
+local function is_french(meta)
+  if meta_bool(meta.french) then
+    return true
+  end
+
+  local output = meta.output
+  if output == nil or pandoc.utils.type(output) ~= "MetaMap" then
+    return false
+  end
+
+  local output_map = output
+  for key, value in pairs(output_map) do
+    if tostring(key):find("resdoc_docx", 1, true) and pandoc.utils.type(value) == "MetaMap" then
+      if meta_bool(value.french) then
+        return true
+      end
     end
   end
 
-  if #values == 0 then
-    return nil
-  end
-
-  if #values == 1 then
-    return values[1]
-  end
-
-  local joined = {}
-  for _, value in ipairs(values) do
-    table.insert(joined, meta_to_markdown(value))
-  end
-  return pandoc.MetaString(table.concat(joined, "\n\n"))
+  return false
 end
 
-local function styled_block(kind, markdown)
+local function styled_block(kind, markdown, style_map)
   if markdown == nil or markdown == "" then
     return {}
   end
 
   local parsed = pandoc.read(markdown, "markdown")
-  local style = STYLE_MAP[kind]
+  local style = style_map[kind]
   local out = { marker_block(kind, "start") }
 
   if #parsed.blocks > 0 then
@@ -112,20 +136,26 @@ end
 
 function Pandoc(doc)
   local meta = doc.meta
+  local french = is_french(meta)
+  local style_map = french and STYLE_MAP_FR or STYLE_MAP_EN
   local authors_value = first_non_nil(meta, { "authors", "author" })
+  local title_keys = french and { "french_title", "title", "english_title" } or { "english_title", "title", "french_title" }
+  local address_keys = french and { "french_address", "address", "english_address" } or { "english_address", "address", "french_address" }
+  local citation_keys = french and { "french_citations", "citations", "english_citations" } or { "english_citations", "citations", "french_citations" }
+  local abstract_keys = french and { "french_abstract", "abstract", "english_abstract" } or { "english_abstract", "abstract", "french_abstract" }
 
   local fields = {
-    { key = "title", value = combine_non_nil(meta, { "title", "english_title", "french_title" }) },
+    { key = "title", value = first_non_nil(meta, title_keys) },
     { key = "authors", value = authors_value },
-    { key = "address", value = combine_non_nil(meta, { "address", "english_address", "french_address" }) },
-    { key = "citations", value = combine_non_nil(meta, { "citations", "english_citations", "french_citations" }) },
-    { key = "abstract", value = combine_non_nil(meta, { "abstract", "english_abstract", "french_abstract" }) }
+    { key = "address", value = first_non_nil(meta, address_keys) },
+    { key = "citations", value = first_non_nil(meta, citation_keys) },
+    { key = "abstract", value = first_non_nil(meta, abstract_keys) }
   }
 
   local injected = {}
   for _, field in ipairs(fields) do
     local markdown = meta_to_markdown(field.value)
-    local blocks = styled_block(field.key, markdown)
+    local blocks = styled_block(field.key, markdown, style_map)
     for _, block in ipairs(blocks) do
       table.insert(injected, block)
     end
