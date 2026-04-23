@@ -1,5 +1,12 @@
 # csasdown development version
 
+## csasdown 0.0.0.90024
+
+* Update `move_text()` to move marker-delimited blocks within the same `.docx`
+  file by relocating source marker ranges directly into bookmark locations in
+  that document.
+* Update `move_text()` tests to validate within-document movement behavior.
+
 ## csasdown 0.0.0.90023
 
 * Add internal `move_text()` DOCX helper to move marker-delimited rendered

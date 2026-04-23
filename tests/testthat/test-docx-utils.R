@@ -58,60 +58,50 @@ read_document_xml <- function(path) {
   paste(readLines(file.path(tmp, "word", "document.xml"), warn = FALSE), collapse = "")
 }
 
-test_that("move_text moves multi-paragraph content between marker and bookmark", {
-  source <- tempfile(fileext = ".docx")
-  target <- tempfile(fileext = ".docx")
+test_that("move_text moves multi-paragraph content within a document", {
+  docx <- tempfile(fileext = ".docx")
 
-  source_doc <- officer::read_docx() |>
+  doc <- officer::read_docx() |>
+    officer::body_add_par("Placeholder", style = "heading 1") |>
+    officer::cursor_backward() |>
+    officer::body_bookmark("title") |>
+    officer::cursor_end() |>
     officer::body_add_par("before", style = "Normal") |>
     officer::body_add_par("START:title", style = "Normal") |>
     officer::body_add_par("First moved paragraph", style = "Normal") |>
     officer::body_add_par("Second moved paragraph", style = "Normal") |>
     officer::body_add_par("END:title", style = "Normal") |>
     officer::body_add_par("after", style = "Normal")
-  print(source_doc, target = source)
+  print(doc, target = docx)
 
-  target_doc <- officer::read_docx() |>
-    officer::body_add_par("Placeholder", style = "heading 1") |>
-    officer::cursor_backward() |>
-    officer::body_bookmark("title")
-  print(target_doc, target = target)
+  csasdown:::move_text(docx, c(title = "title"))
 
-  csasdown:::move_text(source, target, c(title = "title"))
+  doc_xml <- read_document_xml(docx)
 
-  source_xml <- read_document_xml(source)
-  target_xml <- read_document_xml(target)
-
-  expect_false(grepl("START:title", source_xml, fixed = TRUE))
-  expect_false(grepl("END:title", source_xml, fixed = TRUE))
-  expect_false(grepl("First moved paragraph", source_xml, fixed = TRUE))
-  expect_false(grepl("Second moved paragraph", source_xml, fixed = TRUE))
-  expect_true(grepl("before", source_xml, fixed = TRUE))
-  expect_true(grepl("after", source_xml, fixed = TRUE))
-
-  expect_true(grepl("First moved paragraph", target_xml, fixed = TRUE))
-  expect_true(grepl("Second moved paragraph", target_xml, fixed = TRUE))
-  expect_false(grepl("Placeholder", target_xml, fixed = TRUE))
-  expect_true(grepl('<w:pStyle w:val="heading1"/>', target_xml, fixed = TRUE))
+  expect_false(grepl("START:title", doc_xml, fixed = TRUE))
+  expect_false(grepl("END:title", doc_xml, fixed = TRUE))
+  expect_false(grepl("Placeholder", doc_xml, fixed = TRUE))
+  expect_true(grepl("First moved paragraph", doc_xml, fixed = TRUE))
+  expect_true(grepl("Second moved paragraph", doc_xml, fixed = TRUE))
+  expect_true(grepl("before", doc_xml, fixed = TRUE))
+  expect_true(grepl("after", doc_xml, fixed = TRUE))
+  expect_true(grepl('<w:pStyle w:val="heading1"/>', doc_xml, fixed = TRUE))
 })
 
 test_that("move_text errors when markers are missing", {
-  source <- tempfile(fileext = ".docx")
-  target <- tempfile(fileext = ".docx")
+  docx <- tempfile(fileext = ".docx")
 
-  source_doc <- officer::read_docx() |>
-    officer::body_add_par("START:title", style = "Normal") |>
-    officer::body_add_par("No end marker", style = "Normal")
-  print(source_doc, target = source)
-
-  target_doc <- officer::read_docx() |>
+  doc <- officer::read_docx() |>
     officer::body_add_par("Placeholder", style = "Normal") |>
     officer::cursor_backward() |>
-    officer::body_bookmark("title")
-  print(target_doc, target = target)
+    officer::body_bookmark("title") |>
+    officer::cursor_end() |>
+    officer::body_add_par("START:title", style = "Normal") |>
+    officer::body_add_par("No end marker", style = "Normal")
+  print(doc, target = docx)
 
   expect_error(
-    csasdown:::move_text(source, target, c(title = "title")),
+    csasdown:::move_text(docx, c(title = "title")),
     "Could not find both START:title and END:title markers."
   )
 })

@@ -1012,7 +1012,7 @@ add_caption_fix_postprocessor <- function(base_format, reference_docx) {
   base_format
 }
 
-move_text <- function(source_docx, target_docx, moves) {
+move_text <- function(docx_path, moves) {
   if (missing(moves) || !length(moves)) {
     stop("`moves` must contain at least one marker/bookmark mapping.", call. = FALSE)
   }
@@ -1020,19 +1020,14 @@ move_text <- function(source_docx, target_docx, moves) {
     stop("`moves` must be a named vector or list.", call. = FALSE)
   }
 
-  source_dir <- tempfile()
-  target_dir <- tempfile()
-  dir.create(source_dir)
-  dir.create(target_dir)
-  on.exit(unlink(c(source_dir, target_dir), recursive = TRUE), add = TRUE)
+  docx_dir <- tempfile()
+  dir.create(docx_dir)
+  on.exit(unlink(docx_dir, recursive = TRUE), add = TRUE)
 
-  utils::unzip(source_docx, exdir = source_dir)
-  utils::unzip(target_docx, exdir = target_dir)
+  utils::unzip(docx_path, exdir = docx_dir)
 
-  source_xml_path <- file.path(source_dir, "word", "document.xml")
-  target_xml_path <- file.path(target_dir, "word", "document.xml")
-  source_xml <- paste(readLines(source_xml_path, warn = FALSE), collapse = "")
-  target_xml <- paste(readLines(target_xml_path, warn = FALSE), collapse = "")
+  xml_path <- file.path(docx_dir, "word", "document.xml")
+  doc_xml <- paste(readLines(xml_path, warn = FALSE), collapse = "")
 
   apply_par_style <- function(block_xml, style_id) {
     if (!nzchar(style_id)) {
@@ -1076,8 +1071,8 @@ move_text <- function(source_docx, target_docx, moves) {
 
     start_pattern <- sprintf("(?s)<w:p\\b.*?START:%s.*?</w:p>", marker)
     end_pattern <- sprintf("(?s)<w:p\\b.*?END:%s.*?</w:p>", marker)
-    start_match <- regexpr(start_pattern, source_xml, perl = TRUE)
-    end_match <- regexpr(end_pattern, source_xml, perl = TRUE)
+    start_match <- regexpr(start_pattern, doc_xml, perl = TRUE)
+    end_match <- regexpr(end_pattern, doc_xml, perl = TRUE)
 
     if (start_match[1] == -1L || end_match[1] == -1L) {
       stop(sprintf("Could not find both START:%s and END:%s markers.", marker, marker), call. = FALSE)
@@ -1089,21 +1084,21 @@ move_text <- function(source_docx, target_docx, moves) {
       stop(sprintf("Marker order is invalid for '%s'.", marker), call. = FALSE)
     }
 
-    moved_block <- substr(source_xml, start_end, end_start - 1L)
+    moved_block <- substr(doc_xml, start_end, end_start - 1L)
     remove_start <- start_match[1]
     remove_end <- end_match[1] + attr(end_match, "match.length") - 1L
-    source_xml <- paste0(
-      substr(source_xml, 1, remove_start - 1L),
-      substr(source_xml, remove_end + 1L, nchar(source_xml))
+    doc_xml <- paste0(
+      substr(doc_xml, 1, remove_start - 1L),
+      substr(doc_xml, remove_end + 1L, nchar(doc_xml))
     )
 
     bookmark_pattern <- sprintf(
       '(?s)(<w:bookmarkStart[^>]*w:name="%s"[^>]*/>)(.*?)(<w:bookmarkEnd[^>]*/>)',
       bookmark
     )
-    bookmark_match <- regmatches(target_xml, regexpr(bookmark_pattern, target_xml, perl = TRUE))
+    bookmark_match <- regmatches(doc_xml, regexpr(bookmark_pattern, doc_xml, perl = TRUE))
     if (!length(bookmark_match) || !nzchar(bookmark_match)) {
-      stop(sprintf("Bookmark '%s' not found in target document.", bookmark), call. = FALSE)
+      stop(sprintf("Bookmark '%s' not found in document.", bookmark), call. = FALSE)
     }
 
     style_match <- regmatches(
@@ -1116,13 +1111,12 @@ move_text <- function(source_docx, target_docx, moves) {
       ""
     }
     moved_block <- apply_par_style(moved_block, style_id)
-    target_xml <- sub(bookmark_pattern, paste0("\\1", moved_block, "\\3"), target_xml, perl = TRUE)
+    doc_xml <- sub(bookmark_pattern, paste0("\\1", moved_block, "\\3"), doc_xml, perl = TRUE)
   }
 
-  writeLines(source_xml, source_xml_path)
-  writeLines(target_xml, target_xml_path)
+  writeLines(doc_xml, xml_path)
 
-  rezip_docx <- function(docx_path, temp_dir) {
+  rezip_docx <- function(path, temp_dir) {
     old_wd <- setwd(temp_dir)
     on.exit(setwd(old_wd), add = TRUE)
     files <- list.files(
@@ -1134,15 +1128,14 @@ move_text <- function(source_docx, target_docx, moves) {
     )
     tmp_zip <- tempfile(fileext = ".zip")
     utils::zip(zipfile = tmp_zip, files = files, flags = "-r9Xq")
-    unlink(docx_path)
-    file.copy(tmp_zip, docx_path, overwrite = TRUE)
+    unlink(path)
+    file.copy(tmp_zip, path, overwrite = TRUE)
     unlink(tmp_zip)
   }
 
-  rezip_docx(source_docx, source_dir)
-  rezip_docx(target_docx, target_dir)
+  rezip_docx(docx_path, docx_dir)
 
-  invisible(list(source_docx = source_docx, target_docx = target_docx))
+  invisible(docx_path)
 }
 
 #' Set page numbering format and start value for a document section
