@@ -1,5 +1,12 @@
 # csasdown development version
 
+## csasdown 0.0.0.90023
+
+* Add internal `move_text()` DOCX helper to move marker-delimited rendered
+  blocks into target bookmarks while removing source marker regions and
+  preserving package styles/numbering in both rezipped documents.
+* Add tests for multi-paragraph movement and missing-marker error handling.
+
 ## csasdown 0.0.0.90022
 
 * Fix resdoc frontmatter injection to target the first non-`index.Rmd` content
