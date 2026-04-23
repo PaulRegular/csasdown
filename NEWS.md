@@ -1,5 +1,11 @@
 # csasdown development version
 
+## csasdown 0.0.0.90029
+
+* Update `move_text()` to preserve hard paragraph returns by replacing the
+  bookmark-containing paragraph with moved paragraph blocks (instead of
+  converting moved paragraphs to run-level line breaks).
+
 ## csasdown 0.0.0.90028
 
 * Rework `move_text()` bookmark replacement to follow the run-level insertion

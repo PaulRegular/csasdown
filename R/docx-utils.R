@@ -1054,55 +1054,36 @@ move_text <- function(docx_path, moves) {
     c(start = para_start, end = para_end)
   }
 
-  xml_unescape <- function(x) {
-    x <- gsub("&lt;", "<", x, fixed = TRUE)
-    x <- gsub("&gt;", ">", x, fixed = TRUE)
-    x <- gsub("&quot;", '"', x, fixed = TRUE)
-    x <- gsub("&apos;", "'", x, fixed = TRUE)
-    gsub("&amp;", "&", x, fixed = TRUE)
-  }
-
-  block_to_inline_runs <- function(block_xml, bookmark_rpr = "") {
+  apply_par_style <- function(block_xml, style_id) {
+    if (!nzchar(style_id)) {
+      return(block_xml)
+    }
     paragraphs <- gregexpr("(?s)<w:p\\b.*?</w:p>", block_xml, perl = TRUE)[[1]]
     if (identical(paragraphs[1], -1L)) {
-      return("")
+      return(block_xml)
     }
     paragraph_lengths <- attr(paragraphs, "match.length")
-    paragraph_text <- character(length(paragraphs))
+    out <- character(length(paragraphs))
     for (i in seq_along(paragraphs)) {
       p <- substr(block_xml, paragraphs[i], paragraphs[i] + paragraph_lengths[i] - 1L)
-      t_matches <- gregexpr("(?s)<w:t[^>]*>.*?</w:t>", p, perl = TRUE)[[1]]
-      if (identical(t_matches[1], -1L)) {
-        paragraph_text[i] <- ""
-        next
-      }
-      t_lengths <- attr(t_matches, "match.length")
-      chunks <- character(length(t_matches))
-      for (j in seq_along(t_matches)) {
-        t_xml <- substr(p, t_matches[j], t_matches[j] + t_lengths[j] - 1L)
-        chunks[j] <- sub("^<w:t[^>]*>(.*)</w:t>$", "\\1", t_xml, perl = TRUE)
-      }
-      paragraph_text[i] <- xml_unescape(paste(chunks, collapse = ""))
-    }
-
-    out <- character()
-    for (i in seq_along(paragraph_text)) {
-      if (nzchar(paragraph_text[i])) {
-        out <- c(
-          out,
-          if (nzchar(bookmark_rpr)) {
-            sprintf('<w:r>%s<w:t xml:space="preserve">%s</w:t></w:r>', bookmark_rpr, xml_escape_text(paragraph_text[i]))
-          } else {
-            sprintf('<w:r><w:t xml:space="preserve">%s</w:t></w:r>', xml_escape_text(paragraph_text[i]))
-          }
+      if (grepl("<w:pStyle\\b", p, perl = TRUE)) {
+        p <- sub(
+          '<w:pStyle\\s+w:val="[^"]+"\\s*/>',
+          sprintf('<w:pStyle w:val="%s"/>', style_id),
+          p,
+          perl = TRUE
         )
-      }
-      if (i < length(paragraph_text)) {
-        out <- c(
-          out,
-          if (nzchar(bookmark_rpr)) sprintf("<w:r>%s<w:br/></w:r>", bookmark_rpr) else "<w:r><w:br/></w:r>"
+      } else if (grepl("(?s)<w:pPr\\b.*?</w:pPr>", p, perl = TRUE)) {
+        p <- sub(
+          "(?s)(<w:pPr\\b[^>]*>)",
+          sprintf("\\1<w:pStyle w:val=\"%s\"/>", style_id),
+          p,
+          perl = TRUE
         )
+      } else {
+        p <- sub("(<w:p\\b[^>]*>)", paste0("\\1<w:pPr><w:pStyle w:val=\"", style_id, "\"/></w:pPr>"), p, perl = TRUE)
       }
+      out[i] <- p
     }
     paste(out, collapse = "")
   }
@@ -1136,29 +1117,34 @@ move_text <- function(docx_path, moves) {
       substr(doc_xml, remove_end + 1L, nchar(doc_xml))
     )
 
-    bookmark_pattern <- sprintf(
-      '(?s)(<w:bookmarkStart[^>]*w:name="%s"[^>]*/>)(.*?)(<w:bookmarkEnd[^>]*/>)',
+    bookmark_paragraph_pattern <- sprintf(
+      '(?s)<w:p\\b.*?<w:bookmarkStart[^>]*w:name="%s"[^>]*/>.*?<w:bookmarkEnd[^>]*/>.*?</w:p>',
       bookmark
     )
-    bookmark_hit <- regmatches(doc_xml, regexpr(bookmark_pattern, doc_xml, perl = TRUE))
-    if (!length(bookmark_hit) || !nzchar(bookmark_hit)) {
+    bookmark_paragraph <- regmatches(doc_xml, regexpr(bookmark_paragraph_pattern, doc_xml, perl = TRUE))
+    if (!length(bookmark_paragraph) || !nzchar(bookmark_paragraph)) {
       stop(sprintf("Bookmark '%s' not found in document.", bookmark), call. = FALSE)
     }
 
-    bookmark_rpr <- regmatches(bookmark_hit, regexpr("<w:rPr>.*?</w:rPr>", bookmark_hit, perl = TRUE))
-    if (!length(bookmark_rpr) || !nzchar(bookmark_rpr)) {
-      bookmark_rpr <- ""
+    style_match <- regmatches(
+      bookmark_paragraph,
+      regexpr('<w:pStyle\\s+w:val="([^"]+)"\\s*/>', bookmark_paragraph, perl = TRUE)
+    )
+    style_id <- if (length(style_match) && nzchar(style_match)) {
+      sub('.*w:val="([^"]+)".*', "\\1", style_match)
+    } else {
+      ""
     }
 
-    moved_inline <- block_to_inline_runs(moved_block, bookmark_rpr)
-    if (!nzchar(moved_inline)) {
-      moved_inline <- if (nzchar(bookmark_rpr)) {
-        sprintf("<w:r>%s<w:t xml:space=\"preserve\"></w:t></w:r>", bookmark_rpr)
+    moved_block <- apply_par_style(moved_block, style_id)
+    if (!nzchar(moved_block)) {
+      moved_block <- if (nzchar(style_id)) {
+        sprintf('<w:p><w:pPr><w:pStyle w:val="%s"/></w:pPr><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>', style_id)
       } else {
-        "<w:r><w:t xml:space=\"preserve\"></w:t></w:r>"
+        '<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>'
       }
     }
-    doc_xml <- sub(bookmark_pattern, paste0("\\1", moved_inline, "\\3"), doc_xml, perl = TRUE)
+    doc_xml <- sub(bookmark_paragraph_pattern, moved_block, doc_xml, perl = TRUE)
   }
 
   writeLines(doc_xml, xml_path)
