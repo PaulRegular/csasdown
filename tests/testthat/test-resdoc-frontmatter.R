@@ -158,7 +158,7 @@ read_docx_document_xml <- function(docx_path) {
   paste(readLines(file.path(xml_dir, "word", "document.xml"), warn = FALSE), collapse = "")
 }
 
-test_that("resdoc build injects frontmatter metadata into core content docx (English)", {
+test_that("resdoc content build injects frontmatter metadata (English)", {
   skip_on_cran()
 
   wd <- getwd()
@@ -170,11 +170,11 @@ test_that("resdoc build injects frontmatter metadata into core content docx (Eng
 
   suppressMessages(draft("resdoc", create_dir = FALSE, edit = FALSE))
   set_frontmatter_fields("index.Rmd")
-  render()
+  bookdown::render_book("index.Rmd", config_file = "_bookdown.yml")
 
-  core_docx <- "_book/tmp-content.docx"
-  expect_true(file.exists(core_docx))
-  xml <- read_docx_document_xml(core_docx)
+  content_docx <- "_book/resdoc.docx"
+  expect_true(file.exists(content_docx))
+  xml <- read_docx_document_xml(content_docx)
 
   expect_match(xml, "START:title", fixed = TRUE)
   expect_match(xml, "START:authors", fixed = TRUE)
@@ -186,7 +186,7 @@ test_that("resdoc build injects frontmatter metadata into core content docx (Eng
   expect_match(xml, "DFO. 2026. Population trends.", fixed = TRUE)
 })
 
-test_that("resdoc build injects frontmatter metadata into core content docx (French)", {
+test_that("resdoc content build injects frontmatter metadata (French)", {
   skip_on_cran()
 
   wd <- getwd()
@@ -199,11 +199,11 @@ test_that("resdoc build injects frontmatter metadata into core content docx (Fre
   suppressMessages(draft("resdoc", create_dir = FALSE, edit = FALSE))
   set_frontmatter_fields("index.Rmd")
   set_french("index.Rmd")
-  render()
+  bookdown::render_book("index.Rmd", config_file = "_bookdown.yml")
 
-  core_docx <- "_book/tmp-content.docx"
-  expect_true(file.exists(core_docx))
-  xml <- read_docx_document_xml(core_docx)
+  content_docx <- "_book/resdoc.docx"
+  expect_true(file.exists(content_docx))
+  xml <- read_docx_document_xml(content_docx)
 
   expect_match(xml, "START:title", fixed = TRUE)
   expect_match(xml, "START:authors", fixed = TRUE)

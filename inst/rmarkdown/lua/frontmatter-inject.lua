@@ -82,17 +82,8 @@ local function meta_bool(value)
     return false
   end
 
-  local t = pandoc.utils.type(value)
-  if t == "MetaBool" then
-    return value
-  end
-
-  if t == "MetaString" then
-    local lowered = tostring(value):lower()
-    return lowered == "true"
-  end
-
-  return false
+  local lowered = pandoc.utils.stringify(value):lower()
+  return lowered == "true" or lowered == "yes" or lowered == "1"
 end
 
 local function is_french(meta)

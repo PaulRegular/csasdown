@@ -1,12 +1,8 @@
 # csasdown development version
 
-## csasdown 0.0.0.90023
-
-* Simplify French mode handling in frontmatter injector tests (`french: true` metadata), and add integration tests that verify title/authors/address/citation frontmatter is injected into `_book/tmp-content.docx` for both English and French resdoc builds.
-
 ## csasdown 0.0.0.90022
 
-* Improve the resdoc frontmatter Lua injector so it reliably emits deterministic markers, reads bilingual YAML keys (`english_*`/`french_*`), and applies the correct English/French cover styles based on the `french` render option.
+* Improve the resdoc frontmatter Lua injector so the content build consistently injects deterministic frontmatter markers and bilingual metadata with language-appropriate styles during render, backed by focused unit and content-build tests.
 
 ## csasdown 0.0.0.90021
 
