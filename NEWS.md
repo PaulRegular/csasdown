@@ -1,5 +1,13 @@
 # csasdown development version
 
+## csasdown 0.0.0.90030
+
+* Rework `add_resdoc_word_frontmatter2()` to assemble frontmatter and content
+  first, then move marker-delimited frontmatter and abstract text into
+  frontmatter bookmarks via `move_text()`.
+* Remove resdoc abstract extraction/removal helpers from the frontmatter
+  assembly path.
+
 ## csasdown 0.0.0.90029
 
 * Update `move_text()` to preserve hard paragraph returns by replacing the
