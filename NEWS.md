@@ -1,5 +1,10 @@
 # csasdown development version
 
+## csasdown 0.0.0.90025
+
+* Update `move_text()` tests to use `inst/csas-docx/resdoc-frontmatter-english2.docx`
+  so movement is validated against a real frontmatter template bookmark layout.
+
 ## csasdown 0.0.0.90024
 
 * Update `move_text()` to move marker-delimited blocks within the same `.docx`

@@ -58,13 +58,31 @@ read_document_xml <- function(path) {
   paste(readLines(file.path(tmp, "word", "document.xml"), warn = FALSE), collapse = "")
 }
 
-test_that("move_text moves multi-paragraph content within a document", {
-  docx <- tempfile(fileext = ".docx")
+extract_bookmark_style <- function(xml, bookmark) {
+  pattern <- sprintf(
+    '(?s)(<w:bookmarkStart[^>]*w:name="%s"[^>]*/>)(.*?)(<w:bookmarkEnd[^>]*/>)',
+    bookmark
+  )
+  hit <- regmatches(xml, regexpr(pattern, xml, perl = TRUE))
+  if (!length(hit) || !nzchar(hit)) {
+    return("")
+  }
+  style <- regmatches(hit, regexpr('<w:pStyle\\s+w:val="([^"]+)"\\s*/>', hit, perl = TRUE))
+  if (!length(style) || !nzchar(style)) {
+    return("")
+  }
+  sub('.*w:val="([^"]+)".*', "\\1", style)
+}
 
-  doc <- officer::read_docx() |>
-    officer::body_add_par("Placeholder", style = "heading 1") |>
-    officer::cursor_backward() |>
-    officer::body_bookmark("title") |>
+test_that("move_text moves multi-paragraph content within a document", {
+  template <- testthat::test_path("../../inst/csas-docx/resdoc-frontmatter-english2.docx")
+  expect_true(file.exists(template))
+  docx <- tempfile(fileext = ".docx")
+  file.copy(template, docx, overwrite = TRUE)
+
+  style_before <- extract_bookmark_style(read_document_xml(docx), "title")
+
+  doc <- officer::read_docx(docx) |>
     officer::cursor_end() |>
     officer::body_add_par("before", style = "Normal") |>
     officer::body_add_par("START:title", style = "Normal") |>
@@ -77,24 +95,27 @@ test_that("move_text moves multi-paragraph content within a document", {
   csasdown:::move_text(docx, c(title = "title"))
 
   doc_xml <- read_document_xml(docx)
+  style_after <- extract_bookmark_style(doc_xml, "title")
 
   expect_false(grepl("START:title", doc_xml, fixed = TRUE))
   expect_false(grepl("END:title", doc_xml, fixed = TRUE))
-  expect_false(grepl("Placeholder", doc_xml, fixed = TRUE))
   expect_true(grepl("First moved paragraph", doc_xml, fixed = TRUE))
   expect_true(grepl("Second moved paragraph", doc_xml, fixed = TRUE))
   expect_true(grepl("before", doc_xml, fixed = TRUE))
   expect_true(grepl("after", doc_xml, fixed = TRUE))
-  expect_true(grepl('<w:pStyle w:val="heading1"/>', doc_xml, fixed = TRUE))
+  if (nzchar(style_before)) {
+    expect_identical(style_after, style_before)
+    expect_true(grepl(sprintf('<w:pStyle w:val="%s"/>', style_before), doc_xml, fixed = TRUE))
+  }
 })
 
 test_that("move_text errors when markers are missing", {
+  template <- testthat::test_path("../../inst/csas-docx/resdoc-frontmatter-english2.docx")
+  expect_true(file.exists(template))
   docx <- tempfile(fileext = ".docx")
+  file.copy(template, docx, overwrite = TRUE)
 
-  doc <- officer::read_docx() |>
-    officer::body_add_par("Placeholder", style = "Normal") |>
-    officer::cursor_backward() |>
-    officer::body_bookmark("title") |>
+  doc <- officer::read_docx(docx) |>
     officer::cursor_end() |>
     officer::body_add_par("START:title", style = "Normal") |>
     officer::body_add_par("No end marker", style = "Normal")
