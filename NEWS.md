@@ -1,5 +1,11 @@
 # csasdown development version
 
+## csasdown 0.0.0.90032
+
+* Fix resdoc frontmatter assembly to import rendered content directly into the
+  main document body before calling `move_text()`, so START/END markers are
+  present in `word/document.xml` and can be relocated into bookmarks.
+
 ## csasdown 0.0.0.90031
 
 * Fix `move_text()` marker detection to handle START/END tags split across

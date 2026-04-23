@@ -79,7 +79,7 @@ add_resdoc_word_frontmatter2 <- function(index_fn, yaml_fn = "_bookdown.yml", ve
 
   full_doc <- officer::read_docx("tmp-frontmatter.docx") |>
     officer::cursor_end() |>
-    officer::body_add_docx("tmp-content.docx", pos = "on") |>
+    officer::body_import_docx("tmp-content.docx") |>
     officer::docx_set_settings(even_and_odd_headers = FALSE)
 
   print(full_doc, target = book_filename)
