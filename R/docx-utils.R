@@ -1029,6 +1029,31 @@ move_text <- function(docx_path, moves) {
   xml_path <- file.path(docx_dir, "word", "document.xml")
   doc_xml <- paste(readLines(xml_path, warn = FALSE), collapse = "")
 
+  find_paragraph_bounds <- function(xml, marker_text, min_pos = 1L) {
+    marker_positions <- gregexpr(marker_text, xml, fixed = TRUE)[[1]]
+    if (identical(marker_positions[1], -1L)) {
+      return(NULL)
+    }
+    marker_positions <- marker_positions[marker_positions >= min_pos]
+    if (!length(marker_positions)) {
+      return(NULL)
+    }
+    marker_pos <- marker_positions[[1]]
+    prefix <- substr(xml, 1L, marker_pos)
+    para_starts <- gregexpr("<w:p\\b", prefix, perl = TRUE)[[1]]
+    if (identical(para_starts[1], -1L)) {
+      return(NULL)
+    }
+    para_start <- max(para_starts)
+    suffix <- substr(xml, marker_pos, nchar(xml))
+    para_end_rel <- regexpr("</w:p>", suffix, fixed = TRUE)[1]
+    if (identical(para_end_rel, -1L)) {
+      return(NULL)
+    }
+    para_end <- marker_pos + para_end_rel + nchar("</w:p>") - 2L
+    c(start = para_start, end = para_end)
+  }
+
   apply_par_style <- function(block_xml, style_id) {
     if (!nzchar(style_id)) {
       return(block_xml)
@@ -1069,24 +1094,24 @@ move_text <- function(docx_path, moves) {
       stop(sprintf("Bookmark for marker '%s' is empty.", marker), call. = FALSE)
     }
 
-    start_pattern <- sprintf("(?s)<w:p\\b.*?START:%s.*?</w:p>", marker)
-    end_pattern <- sprintf("(?s)<w:p\\b.*?END:%s.*?</w:p>", marker)
-    start_match <- regexpr(start_pattern, doc_xml, perl = TRUE)
-    end_match <- regexpr(end_pattern, doc_xml, perl = TRUE)
-
-    if (start_match[1] == -1L || end_match[1] == -1L) {
+    start_bounds <- find_paragraph_bounds(doc_xml, paste0("START:", marker))
+    if (is.null(start_bounds)) {
+      stop(sprintf("Could not find both START:%s and END:%s markers.", marker, marker), call. = FALSE)
+    }
+    end_bounds <- find_paragraph_bounds(doc_xml, paste0("END:", marker), min_pos = start_bounds[["end"]] + 1L)
+    if (is.null(end_bounds)) {
       stop(sprintf("Could not find both START:%s and END:%s markers.", marker, marker), call. = FALSE)
     }
 
-    start_end <- start_match[1] + attr(start_match, "match.length")
-    end_start <- end_match[1]
+    start_end <- start_bounds[["end"]] + 1L
+    end_start <- end_bounds[["start"]]
     if (start_end > end_start) {
       stop(sprintf("Marker order is invalid for '%s'.", marker), call. = FALSE)
     }
 
     moved_block <- substr(doc_xml, start_end, end_start - 1L)
-    remove_start <- start_match[1]
-    remove_end <- end_match[1] + attr(end_match, "match.length") - 1L
+    remove_start <- start_bounds[["start"]]
+    remove_end <- end_bounds[["end"]]
     doc_xml <- paste0(
       substr(doc_xml, 1, remove_start - 1L),
       substr(doc_xml, remove_end + 1L, nchar(doc_xml))

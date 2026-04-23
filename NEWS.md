@@ -1,5 +1,11 @@
 # csasdown development version
 
+## csasdown 0.0.0.90026
+
+* Fix `move_text()` marker-boundary detection to avoid false "Marker order is
+  invalid" failures by locating marker text first and then resolving enclosing
+  paragraph bounds.
+
 ## csasdown 0.0.0.90025
 
 * Update `move_text()` tests to use `inst/csas-docx/resdoc-frontmatter-english2.docx`
