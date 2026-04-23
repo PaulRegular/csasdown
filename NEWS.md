@@ -1,5 +1,13 @@
 # csasdown development version
 
+## csasdown 0.0.0.90031
+
+* Refactor resdoc rendering into two bookdown passes: a small temporary
+  frontmatter render (including abstract) and a separate main-content render,
+  then merge via frontmatter template + `move_text()`.
+* Simplify `move_text()` internals and update resdoc pre-processing helpers to
+  create and clean up `tmp-frontmatter.md` while restoring user files on exit.
+
 ## csasdown 0.0.0.90030
 
 * Rework `add_resdoc_word_frontmatter2()` to assemble frontmatter and content

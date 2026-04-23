@@ -58,24 +58,49 @@ render <- function(
   }
 
   output_options <- list(pandoc_args = c("--metadata=title:", "--metadata=abstract:"))
-  resdoc_preprocess_state <- NULL
   if (type == "resdoc") {
-    resdoc_preprocess_state <- inject_resdoc_frontmatter_text(index_fn = "index.Rmd", yaml_fn = config_file)
-    on.exit(restore_injected_resdoc_frontmatter_text(resdoc_preprocess_state), add = TRUE)
-  }
+    resdoc_state <- prepare_resdoc_frontmatter_inputs(index_fn = "index.Rmd", yaml_fn = config_file)
+    on.exit(restore_resdoc_frontmatter_inputs(resdoc_state), add = TRUE)
+    tmp_cfg <- create_resdoc_render_configs(config_file, resdoc_state$tmp_frontmatter_md, resdoc_state$file)
+    on.exit(unlink(c(tmp_cfg$frontmatter, tmp_cfg$content)), add = TRUE)
 
-  cli_inform("Rendering document with bookdown...")
-  bookdown::render_book("index.Rmd",
-    config_file = config_file,
-    envir = parent.frame(n = 2L), # FIXME: needed??
-    output_options = output_options,
-    ...
-  )
-  cli_alert_success("Bookdown rendering complete")
+    cli_inform("Rendering resdoc frontmatter with bookdown...")
+    bookdown::render_book("index.Rmd",
+      config_file = tmp_cfg$frontmatter,
+      envir = parent.frame(n = 2L),
+      output_options = output_options,
+      output_file = "tmp-frontmatter.docx",
+      ...
+    )
+    cli_alert_success("Frontmatter rendering complete")
+
+    cli_inform("Rendering resdoc main content with bookdown...")
+    bookdown::render_book("index.Rmd",
+      config_file = tmp_cfg$content,
+      envir = parent.frame(n = 2L),
+      output_options = output_options,
+      output_file = "tmp-content.docx",
+      ...
+    )
+    cli_alert_success("Main content rendering complete")
+  } else {
+    cli_inform("Rendering document with bookdown...")
+    bookdown::render_book("index.Rmd",
+      config_file = config_file,
+      envir = parent.frame(n = 2L), # FIXME: needed??
+      output_options = output_options,
+      ...
+    )
+    cli_alert_success("Bookdown rendering complete")
+  }
 
   # officedown outputs to the root, not the _book folder like bookdown
   book_filename <- paste0(get_book_filename(config_file), ".docx")
-  file.rename(book_filename, file.path("_book", book_filename))
+  if (type != "resdoc") {
+    file.rename(book_filename, file.path("_book", book_filename))
+  } else if (!dir.exists("_book")) {
+    dir.create("_book", recursive = TRUE, showWarnings = FALSE)
+  }
   cli_alert_success("Moved output to _book/{book_filename}")
 
   if (type == "resdoc") {

@@ -69,23 +69,17 @@ add_resdoc_word_frontmatter2 <- function(index_fn, yaml_fn = "_bookdown.yml", ve
     officer::cursor_reach(keyword = toc_keyword) |>
     officer::body_add_toc()
 
-  print(frontmatter, target = "tmp-frontmatter.docx")
-  fix_missing_namespaces("tmp-frontmatter.docx")
+  print(frontmatter, target = "tmp-template-frontmatter.docx")
+  fix_missing_namespaces("tmp-template-frontmatter.docx")
 
-  content <- officer::read_docx(book_filename) |>
-    officer::docx_set_settings(even_and_odd_headers = FALSE)
-
-  print(content, target = "tmp-content.docx")
-
-  full_doc <- officer::read_docx("tmp-frontmatter.docx") |>
+  front_render <- officer::read_docx("tmp-template-frontmatter.docx") |>
     officer::cursor_end() |>
-    officer::body_add_docx("tmp-content.docx", pos = "on") |>
+    officer::body_add_docx("tmp-frontmatter.docx", pos = "on") |>
     officer::docx_set_settings(even_and_odd_headers = FALSE)
-
-  print(full_doc, target = book_filename)
+  print(front_render, target = "tmp-frontmatter-rendered.docx")
 
   move_text(
-    book_filename,
+    "tmp-frontmatter-rendered.docx",
     c(
       title = "title",
       authors = "authors",
@@ -102,16 +96,30 @@ add_resdoc_word_frontmatter2 <- function(index_fn, yaml_fn = "_bookdown.yml", ve
     )
   )
 
+  full_doc <- officer::read_docx("tmp-frontmatter-rendered.docx") |>
+    officer::cursor_end() |>
+    officer::body_add_docx("tmp-content.docx", pos = "on") |>
+    officer::docx_set_settings(even_and_odd_headers = FALSE)
+
+  print(full_doc, target = book_filename)
+
   fix_table_caption_alignment(book_filename, reference_docx = "resdoc-content-2026.docx")
 
   if (!keep_files) {
-    unlink(c("tmp-frontmatter.docx", "tmp-content.docx"))
+    unlink(c("tmp-frontmatter.docx", "tmp-content.docx", "tmp-template-frontmatter.docx", "tmp-frontmatter-rendered.docx"))
   }
 
   invisible()
 }
 
-inject_resdoc_frontmatter_text <- function(index_fn = "index.Rmd", yaml_fn = "_bookdown.yml") {
+#' Build temporary resdoc frontmatter and stripped content inputs
+#'
+#' @param index_fn Path to index Rmd file.
+#' @param yaml_fn Path to bookdown yaml file.
+#'
+#' @keywords internal
+#' @noRd
+prepare_resdoc_frontmatter_inputs <- function(index_fn = "index.Rmd", yaml_fn = "_bookdown.yml") {
   x <- rmarkdown::yaml_front_matter(index_fn)
   parsed <- parse_author_field(x$author)
   x$english_author <- parsed$english_author
@@ -140,15 +148,10 @@ inject_resdoc_frontmatter_text <- function(index_fn = "index.Rmd", yaml_fn = "_b
     stop(sprintf("No content found in '%s'.", first_rmd))
   }
 
-  text_or_empty <- function(value) {
-    if (is.null(value)) "" else as.character(value)
-  }
+  text_or_empty <- function(value) if (is.null(value)) "" else as.character(value)
+  build_tagged_block <- function(tag, value) c(paste0("START:", tag), "", text_or_empty(value), "", paste0("END:", tag), "")
 
-  build_tagged_block <- function(tag, value) {
-    c(paste0("START:", tag, "\n"), text_or_empty(value), paste0("\nEND:", tag), "\n")
-  }
-
-  frontmatter_lines <- c(
+  tagged_frontmatter <- c(
     build_tagged_block("title", title),
     build_tagged_block("authors", authors),
     build_tagged_block("address", address),
@@ -164,37 +167,61 @@ inject_resdoc_frontmatter_text <- function(index_fn = "index.Rmd", yaml_fn = "_b
 
   heading_pat <- "^#\\s*(ABSTRACT|R\u00c9SUM\u00c9|RESUME)\\s*$"
   abstract_heading_i <- which(grepl(heading_pat, original_lines, ignore.case = TRUE))
-
-  processed_lines <- original_lines
+  abstract_lines <- character()
+  stripped_lines <- original_lines
   if (length(abstract_heading_i) > 0) {
     heading_i <- abstract_heading_i[[1]]
-    remaining <- if (heading_i < length(processed_lines)) {
-      processed_lines[(heading_i + 1):length(processed_lines)]
-    } else {
-      character()
-    }
+    remaining <- if (heading_i < length(stripped_lines)) stripped_lines[(heading_i + 1):length(stripped_lines)] else character()
     next_h1_rel <- which(grepl("^#\\s+", remaining))
-    next_h1_i <- if (length(next_h1_rel) > 0) heading_i + next_h1_rel[[1]] else length(processed_lines) + 1
-    abstract_body <- if (heading_i + 1 <= next_h1_i - 1) processed_lines[(heading_i + 1):(next_h1_i - 1)] else character()
-    abstract_tagged <- c("START:abstract\n", abstract_body, "END:abstract\n")
-    suffix <- if (next_h1_i <= length(processed_lines)) processed_lines[next_h1_i:length(processed_lines)] else character()
-    processed_lines <- c(
-      processed_lines[seq_len(heading_i - 1)],
-      processed_lines[[heading_i]],
-      abstract_tagged,
-      suffix
-    )
+    next_h1_i <- if (length(next_h1_rel) > 0) heading_i + next_h1_rel[[1]] else length(stripped_lines) + 1
+    abstract_body <- if (heading_i + 1 <= next_h1_i - 1) stripped_lines[(heading_i + 1):(next_h1_i - 1)] else character()
+    abstract_lines <- c("START:abstract", "", abstract_body, "", "END:abstract", "")
+    prefix <- if (heading_i > 1) stripped_lines[seq_len(heading_i - 1)] else character()
+    suffix <- if (next_h1_i <= length(stripped_lines)) stripped_lines[next_h1_i:length(stripped_lines)] else character()
+    stripped_lines <- c(prefix, suffix)
   }
 
-  writeLines(c(frontmatter_lines, processed_lines), con = first_rmd)
+  tmp_frontmatter_md <- "tmp-frontmatter.md"
+  writeLines(c(tagged_frontmatter, abstract_lines), con = tmp_frontmatter_md)
+  writeLines(stripped_lines, con = first_rmd)
 
-  list(file = first_rmd, original_lines = original_lines)
+  list(file = first_rmd, original_lines = original_lines, tmp_frontmatter_md = tmp_frontmatter_md)
 }
 
-restore_injected_resdoc_frontmatter_text <- function(state) {
+#' Restore user files changed during resdoc pre-processing
+#'
+#' @param state List returned by [prepare_resdoc_frontmatter_inputs()].
+#'
+#' @keywords internal
+#' @noRd
+restore_resdoc_frontmatter_inputs <- function(state) {
   if (is.null(state$file) || is.null(state$original_lines)) {
     return(invisible())
   }
   writeLines(state$original_lines, con = state$file)
+  if (!is.null(state$tmp_frontmatter_md) && file.exists(state$tmp_frontmatter_md)) {
+    unlink(state$tmp_frontmatter_md)
+  }
   invisible()
+}
+
+#' Create temporary bookdown configs for two-pass resdoc rendering
+#'
+#' @param yaml_fn Path to base bookdown config.
+#' @param frontmatter_file Path to temporary frontmatter Rmd/Markdown.
+#' @param content_file Path to stripped content Rmd.
+#'
+#' @keywords internal
+#' @noRd
+create_resdoc_render_configs <- function(yaml_fn, frontmatter_file, content_file) {
+  cfg <- yaml::read_yaml(yaml_fn)
+  cfg_front <- cfg
+  cfg_front$rmd_files <- c(frontmatter_file)
+  cfg_content <- cfg
+  cfg_content$rmd_files <- c(content_file)
+  front_cfg_file <- tempfile("tmp-frontmatter-", fileext = ".yml")
+  content_cfg_file <- tempfile("tmp-content-", fileext = ".yml")
+  yaml::write_yaml(cfg_front, front_cfg_file)
+  yaml::write_yaml(cfg_content, content_cfg_file)
+  list(frontmatter = front_cfg_file, content = content_cfg_file)
 }

@@ -1029,63 +1029,34 @@ move_text <- function(docx_path, moves) {
   xml_path <- file.path(docx_dir, "word", "document.xml")
   doc_xml <- paste(readLines(xml_path, warn = FALSE), collapse = "")
 
-  find_paragraph_bounds <- function(xml, marker_text, min_pos = 1L) {
-    marker_positions <- gregexpr(marker_text, xml, fixed = TRUE)[[1]]
-    if (identical(marker_positions[1], -1L)) {
-      return(NULL)
+  paragraph_bounds <- function(xml, marker, min_pos = 1L) {
+    at <- regexpr(marker, xml, fixed = TRUE)[1]
+    if (at < min_pos) {
+      at <- regexpr(marker, substr(xml, min_pos, nchar(xml)), fixed = TRUE)[1]
+      if (at == -1L) return(NULL)
+      at <- at + min_pos - 1L
     }
-    marker_positions <- marker_positions[marker_positions >= min_pos]
-    if (!length(marker_positions)) {
-      return(NULL)
-    }
-    marker_pos <- marker_positions[[1]]
-    prefix <- substr(xml, 1L, marker_pos)
-    para_starts <- gregexpr("<w:p\\b", prefix, perl = TRUE)[[1]]
-    if (identical(para_starts[1], -1L)) {
-      return(NULL)
-    }
-    para_start <- max(para_starts)
-    suffix <- substr(xml, marker_pos, nchar(xml))
-    para_end_rel <- regexpr("</w:p>", suffix, fixed = TRUE)[1]
-    if (identical(para_end_rel, -1L)) {
-      return(NULL)
-    }
-    para_end <- marker_pos + para_end_rel + nchar("</w:p>") - 2L
-    c(start = para_start, end = para_end)
+    starts <- gregexpr("<w:p\\b", substr(xml, 1, at), perl = TRUE)[[1]]
+    if (identical(starts[1], -1L)) return(NULL)
+    end_rel <- regexpr("</w:p>", substr(xml, at, nchar(xml)), fixed = TRUE)[1]
+    if (end_rel == -1L) return(NULL)
+    c(start = max(starts), end = at + end_rel + nchar("</w:p>") - 2L)
   }
 
-  apply_par_style <- function(block_xml, style_id) {
-    if (!nzchar(style_id)) {
-      return(block_xml)
-    }
-    paragraphs <- gregexpr("(?s)<w:p\\b.*?</w:p>", block_xml, perl = TRUE)[[1]]
-    if (identical(paragraphs[1], -1L)) {
-      return(block_xml)
-    }
-    paragraph_lengths <- attr(paragraphs, "match.length")
-    out <- character(length(paragraphs))
-    for (i in seq_along(paragraphs)) {
-      p <- substr(block_xml, paragraphs[i], paragraphs[i] + paragraph_lengths[i] - 1L)
+  apply_style <- function(block_xml, style_id) {
+    if (!nzchar(style_id)) return(block_xml)
+    paras <- regmatches(block_xml, gregexpr("(?s)<w:p\\b.*?</w:p>", block_xml, perl = TRUE))[[1]]
+    if (!length(paras)) return(block_xml)
+    paras <- vapply(paras, function(p) {
       if (grepl("<w:pStyle\\b", p, perl = TRUE)) {
-        p <- sub(
-          '<w:pStyle\\s+w:val="[^"]+"\\s*/>',
-          sprintf('<w:pStyle w:val="%s"/>', style_id),
-          p,
-          perl = TRUE
-        )
-      } else if (grepl("(?s)<w:pPr\\b.*?</w:pPr>", p, perl = TRUE)) {
-        p <- sub(
-          "(?s)(<w:pPr\\b[^>]*>)",
-          sprintf("\\1<w:pStyle w:val=\"%s\"/>", style_id),
-          p,
-          perl = TRUE
-        )
-      } else {
-        p <- sub("(<w:p\\b[^>]*>)", paste0("\\1<w:pPr><w:pStyle w:val=\"", style_id, "\"/></w:pPr>"), p, perl = TRUE)
+        return(sub('<w:pStyle\\s+w:val="[^"]+"\\s*/>', sprintf('<w:pStyle w:val="%s"/>', style_id), p, perl = TRUE))
       }
-      out[i] <- p
-    }
-    paste(out, collapse = "")
+      if (grepl("(?s)<w:pPr\\b.*?</w:pPr>", p, perl = TRUE)) {
+        return(sub("(?s)(<w:pPr\\b[^>]*>)", sprintf('\\1<w:pStyle w:val="%s"/>', style_id), p, perl = TRUE))
+      }
+      sub("(<w:p\\b[^>]*>)", sprintf('\\1<w:pPr><w:pStyle w:val="%s"/></w:pPr>', style_id), p, perl = TRUE)
+    }, FUN.VALUE = character(1))
+    paste(paras, collapse = "")
   }
 
   for (marker in names(moves)) {
@@ -1094,11 +1065,11 @@ move_text <- function(docx_path, moves) {
       stop(sprintf("Bookmark for marker '%s' is empty.", marker), call. = FALSE)
     }
 
-    start_bounds <- find_paragraph_bounds(doc_xml, paste0("START:", marker))
+    start_bounds <- paragraph_bounds(doc_xml, paste0("START:", marker))
     if (is.null(start_bounds)) {
       stop(sprintf("Could not find both START:%s and END:%s markers.", marker, marker), call. = FALSE)
     }
-    end_bounds <- find_paragraph_bounds(doc_xml, paste0("END:", marker), min_pos = start_bounds[["end"]] + 1L)
+    end_bounds <- paragraph_bounds(doc_xml, paste0("END:", marker), min_pos = start_bounds[["end"]] + 1L)
     if (is.null(end_bounds)) {
       stop(sprintf("Could not find both START:%s and END:%s markers.", marker, marker), call. = FALSE)
     }
@@ -1136,14 +1107,7 @@ move_text <- function(docx_path, moves) {
       ""
     }
 
-    moved_block <- apply_par_style(moved_block, style_id)
-    if (!nzchar(moved_block)) {
-      moved_block <- if (nzchar(style_id)) {
-        sprintf('<w:p><w:pPr><w:pStyle w:val="%s"/></w:pPr><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>', style_id)
-      } else {
-        '<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>'
-      }
-    }
+    moved_block <- apply_style(moved_block, style_id)
     doc_xml <- sub(bookmark_paragraph_pattern, moved_block, doc_xml, perl = TRUE)
   }
 

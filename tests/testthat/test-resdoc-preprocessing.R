@@ -1,4 +1,4 @@
-test_that("inject_resdoc_frontmatter_text adds tagged frontmatter and tags abstract", {
+test_that("prepare_resdoc_frontmatter_inputs writes tmp-frontmatter and strips abstract", {
   wd <- getwd()
   path <- file.path(tempdir(), "resdoc_preprocess_test")
   unlink(path, recursive = TRUE, force = TRUE)
@@ -25,30 +25,23 @@ test_that("inject_resdoc_frontmatter_text adds tagged frontmatter and tags abstr
     "---"
   ), "index.Rmd")
 
-  original <- c(
-    "# ABSTRACT",
-    "Paragraph one.",
-    "Paragraph two.",
-    "",
-    "# INTRODUCTION",
-    "Main text."
-  )
+  original <- c("# ABSTRACT", "Paragraph one.", "Paragraph two.", "", "# INTRODUCTION", "Main text.")
   writeLines(original, "01-main.Rmd")
 
-  state <- inject_resdoc_frontmatter_text("index.Rmd", "_bookdown.yml")
+  state <- prepare_resdoc_frontmatter_inputs("index.Rmd", "_bookdown.yml")
+  frontmatter <- readLines(state$tmp_frontmatter_md, warn = FALSE)
   updated <- readLines("01-main.Rmd", warn = FALSE)
 
-  expect_identical(state$file, "01-main.Rmd")
-  expect_match(paste(updated[1:4], collapse = "\n"), "START:title\n\nEnglish Title\n", perl = TRUE)
-  expect_true(any(updated == "START:authors"))
-  expect_true(any(updated == "START:abstract"))
-  expect_true(any(updated == "END:abstract"))
-  expect_true(any(updated == "# ABSTRACT"))
-  expect_true(any(updated == "Paragraph one."))
+  expect_true(any(frontmatter == "START:title"))
+  expect_true(any(frontmatter == "END:title"))
+  expect_true(any(frontmatter == "START:abstract"))
+  expect_true(any(frontmatter == "Paragraph one."))
+  expect_false(any(updated == "# ABSTRACT"))
+  expect_false(any(updated == "Paragraph one."))
   expect_true(any(updated == "# INTRODUCTION"))
 })
 
-test_that("inject_resdoc_frontmatter_text skips index.Rmd when selecting injection file", {
+test_that("prepare_resdoc_frontmatter_inputs skips index.Rmd when selecting content file", {
   wd <- getwd()
   path <- file.path(tempdir(), "resdoc_preprocess_index_target_test")
   unlink(path, recursive = TRUE, force = TRUE)
@@ -75,17 +68,15 @@ test_that("inject_resdoc_frontmatter_text skips index.Rmd when selecting injecti
     "---"
   )
   writeLines(index_original, "index.Rmd")
-
   writeLines(c("# ABSTRACT", "Abstract body.", "# INTRODUCTION", "Body."), "01-main.Rmd")
 
-  state <- inject_resdoc_frontmatter_text("index.Rmd", "_bookdown.yml")
+  state <- prepare_resdoc_frontmatter_inputs("index.Rmd", "_bookdown.yml")
 
   expect_identical(state$file, "01-main.Rmd")
   expect_identical(readLines("index.Rmd", warn = FALSE), index_original)
-  expect_true(any(readLines("01-main.Rmd", warn = FALSE) == "START:title"))
 })
 
-test_that("restore_injected_resdoc_frontmatter_text restores original file content", {
+test_that("restore_resdoc_frontmatter_inputs restores content and removes temp frontmatter file", {
   wd <- getwd()
   path <- file.path(tempdir(), "resdoc_preprocess_restore_test")
   unlink(path, recursive = TRUE, force = TRUE)
@@ -115,8 +106,10 @@ test_that("restore_injected_resdoc_frontmatter_text restores original file conte
   original <- c("# ABSTRACT", "Some abstract text.", "# INTRODUCTION", "Body.")
   writeLines(original, "01-main.Rmd")
 
-  state <- inject_resdoc_frontmatter_text("index.Rmd", "_bookdown.yml")
-  restore_injected_resdoc_frontmatter_text(state)
+  state <- prepare_resdoc_frontmatter_inputs("index.Rmd", "_bookdown.yml")
+  expect_true(file.exists(state$tmp_frontmatter_md))
+  restore_resdoc_frontmatter_inputs(state)
 
   expect_identical(readLines("01-main.Rmd", warn = FALSE), original)
+  expect_false(file.exists(state$tmp_frontmatter_md))
 })
