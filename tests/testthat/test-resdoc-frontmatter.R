@@ -101,9 +101,7 @@ test_that("frontmatter Lua filter injects French resdoc metadata and cover style
     "french_citations: \"MPO. *Tendances de la population*. 2026.\"",
     "english_abstract: Summary *text*.",
     "french_abstract: Résumé *texte*.",
-    "output:",
-    "  csasdown::resdoc_docx:",
-    "    french: true",
+    "french: true",
     "---",
     "",
     "Body"
@@ -133,6 +131,87 @@ test_that("frontmatter Lua filter injects French resdoc metadata and cover style
   expect_false(grepl("Summary", out, fixed = TRUE))
 
   unlink(c(input, output), force = TRUE)
+})
+
+set_frontmatter_fields <- function(index_file = "index.Rmd") {
+  lines <- readLines(index_file, warn = FALSE)
+  insert_at <- which(grepl("^year:", lines))[1]
+  extra <- c(
+    "english_citations: \"DFO. 2026. Population trends.\"",
+    "french_citations: \"MPO. 2026. Tendances de la population.\""
+  )
+  out <- append(lines, extra, after = insert_at)
+  writeLines(out, index_file)
+}
+
+set_french <- function(index_file = "index.Rmd") {
+  lines <- readLines(index_file, warn = FALSE)
+  lines <- gsub("french: false", "french: true", lines, fixed = TRUE)
+  writeLines(lines, index_file)
+}
+
+read_docx_document_xml <- function(docx_path) {
+  xml_dir <- tempfile("docx-xml-")
+  dir.create(xml_dir)
+  utils::unzip(docx_path, exdir = xml_dir)
+  on.exit(unlink(xml_dir, recursive = TRUE, force = TRUE), add = TRUE)
+  paste(readLines(file.path(xml_dir, "word", "document.xml"), warn = FALSE), collapse = "")
+}
+
+test_that("resdoc build injects frontmatter metadata into core content docx (English)", {
+  skip_on_cran()
+
+  wd <- getwd()
+  testing_path <- file.path(tempdir(), "resdoc-core-content-en")
+  unlink(testing_path, recursive = TRUE, force = TRUE)
+  dir.create(testing_path, showWarnings = FALSE)
+  setwd(testing_path)
+  on.exit(setwd(wd), add = TRUE)
+
+  suppressMessages(draft("resdoc", create_dir = FALSE, edit = FALSE))
+  set_frontmatter_fields("index.Rmd")
+  render()
+
+  core_docx <- "_book/tmp-content.docx"
+  expect_true(file.exists(core_docx))
+  xml <- read_docx_document_xml(core_docx)
+
+  expect_match(xml, "START:title", fixed = TRUE)
+  expect_match(xml, "START:authors", fixed = TRUE)
+  expect_match(xml, "START:address", fixed = TRUE)
+  expect_match(xml, "START:citations", fixed = TRUE)
+  expect_match(xml, "Title Here", fixed = TRUE)
+  expect_match(xml, "First M. Last", fixed = TRUE)
+  expect_match(xml, "Pacific Biological Station", fixed = TRUE)
+  expect_match(xml, "DFO. 2026. Population trends.", fixed = TRUE)
+})
+
+test_that("resdoc build injects frontmatter metadata into core content docx (French)", {
+  skip_on_cran()
+
+  wd <- getwd()
+  testing_path <- file.path(tempdir(), "resdoc-core-content-fr")
+  unlink(testing_path, recursive = TRUE, force = TRUE)
+  dir.create(testing_path, showWarnings = FALSE)
+  setwd(testing_path)
+  on.exit(setwd(wd), add = TRUE)
+
+  suppressMessages(draft("resdoc", create_dir = FALSE, edit = FALSE))
+  set_frontmatter_fields("index.Rmd")
+  set_french("index.Rmd")
+  render()
+
+  core_docx <- "_book/tmp-content.docx"
+  expect_true(file.exists(core_docx))
+  xml <- read_docx_document_xml(core_docx)
+
+  expect_match(xml, "START:title", fixed = TRUE)
+  expect_match(xml, "START:authors", fixed = TRUE)
+  expect_match(xml, "START:address", fixed = TRUE)
+  expect_match(xml, "START:citations", fixed = TRUE)
+  expect_match(xml, "Titre ici", fixed = TRUE)
+  expect_match(xml, "Station biologique du Pacifique", fixed = TRUE)
+  expect_match(xml, "MPO. 2026. Tendances de la population.", fixed = TRUE)
 })
 
 test_that("resdoc output format wires frontmatter injection filter only for resdoc", {
