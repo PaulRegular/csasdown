@@ -1,5 +1,11 @@
 # csasdown development version
 
+## csasdown 0.0.0.90028
+
+* Rework `move_text()` bookmark replacement to follow the run-level insertion
+  approach used by `replace_bookmarks_with_markdown()`, preventing invalid
+  block-level XML insertion that can make Word files fail to open.
+
 ## csasdown 0.0.0.90027
 
 * Fix `move_text()` output corruption by replacing the bookmark-containing
