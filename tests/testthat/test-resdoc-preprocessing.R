@@ -39,7 +39,7 @@ test_that("inject_resdoc_frontmatter_text adds tagged frontmatter and tags abstr
   updated <- readLines("01-main.Rmd", warn = FALSE)
 
   expect_identical(state$file, "01-main.Rmd")
-  expect_match(paste(updated[1:4], collapse = "\n"), "START:title\nEnglish Title\nEND:title", perl = TRUE)
+  expect_match(paste(updated[1:4], collapse = "\n"), "START:title\n\nEnglish Title\n", perl = TRUE)
   expect_true(any(updated == "START:authors"))
   expect_true(any(updated == "START:abstract"))
   expect_true(any(updated == "END:abstract"))

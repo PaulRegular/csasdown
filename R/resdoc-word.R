@@ -225,7 +225,7 @@ inject_resdoc_frontmatter_text <- function(index_fn = "index.Rmd", yaml_fn = "_b
   }
 
   build_tagged_block <- function(tag, value) {
-    c(paste0("START:", tag), text_or_empty(value), paste0("END:", tag), "")
+    c(paste0("START:", tag, "\n"), text_or_empty(value), paste0("\nEND:", tag), "\n")
   }
 
   frontmatter_lines <- c(
@@ -256,7 +256,7 @@ inject_resdoc_frontmatter_text <- function(index_fn = "index.Rmd", yaml_fn = "_b
     next_h1_rel <- which(grepl("^#\\s+", remaining))
     next_h1_i <- if (length(next_h1_rel) > 0) heading_i + next_h1_rel[[1]] else length(processed_lines) + 1
     abstract_body <- if (heading_i + 1 <= next_h1_i - 1) processed_lines[(heading_i + 1):(next_h1_i - 1)] else character()
-    abstract_tagged <- c("START:abstract", abstract_body, "END:abstract")
+    abstract_tagged <- c("START:abstract\n", abstract_body, "END:abstract\n")
     suffix <- if (next_h1_i <= length(processed_lines)) processed_lines[next_h1_i:length(processed_lines)] else character()
     processed_lines <- c(
       processed_lines[seq_len(heading_i - 1)],
