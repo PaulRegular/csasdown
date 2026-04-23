@@ -19,3 +19,67 @@ test_that("resdoc frontmatter replaces header region and year bookmarks", {
 
   unlink(c(out, xml_dir), recursive = TRUE, force = TRUE)
 })
+
+test_that("frontmatter Lua filter injects styled metadata blocks with deterministic markers", {
+  skip_on_cran()
+
+  filter_path <- system.file("rmarkdown", "lua", "frontmatter-inject.lua", package = "csasdown")
+  expect_true(file.exists(filter_path))
+
+  input <- tempfile(fileext = ".md")
+  output <- tempfile(fileext = ".md")
+
+  writeLines(c(
+    "---",
+    "title: Population trends",
+    "authors:",
+    "  - Alice A.^1^",
+    "  - Bob B.^2^",
+    "address: Pacific Region\\\\Fisheries and Oceans Canada",
+    "citations: \"DFO. *Population trends*. 2026.\"",
+    "abstract: Summary *text*.",
+    "---",
+    "",
+    "# Intro",
+    "Body"
+  ), input)
+
+  rmarkdown::pandoc_convert(
+    input = input,
+    to = "markdown",
+    from = "markdown",
+    output = output,
+    options = c("--lua-filter", filter_path)
+  )
+
+  out <- paste(readLines(output, warn = FALSE), collapse = "\n")
+
+  expect_match(out, "\\[\\[CSAS-FM-START:title\\]\\]")
+  expect_match(out, "\\[\\[CSAS-FM-END:title\\]\\]")
+  expect_match(out, "\\[\\[CSAS-FM-START:authors\\]\\]")
+  expect_match(out, "\\[\\[CSAS-FM-END:authors\\]\\]")
+  expect_match(out, "\\[\\[CSAS-FM-START:address\\]\\]")
+  expect_match(out, "\\[\\[CSAS-FM-END:address\\]\\]")
+  expect_match(out, "\\[\\[CSAS-FM-START:citations\\]\\]")
+  expect_match(out, "\\[\\[CSAS-FM-END:citations\\]\\]")
+  expect_match(out, "\\[\\[CSAS-FM-START:abstract\\]\\]")
+  expect_match(out, "\\[\\[CSAS-FM-END:abstract\\]\\]")
+
+  expect_match(out, 'custom-style="Cover: Document title"', fixed = TRUE)
+  expect_match(out, 'custom-style="Cover: Author"', fixed = TRUE)
+  expect_match(out, 'custom-style="Cover: Address"', fixed = TRUE)
+  expect_match(out, 'custom-style="citation"', fixed = TRUE)
+
+  unlink(c(input, output), force = TRUE)
+})
+
+test_that("resdoc output format wires frontmatter injection filter only for resdoc", {
+  resdoc_format <- resdoc_docx()
+  fsar_format <- fsar_docx()
+
+  resdoc_args <- resdoc_format$pandoc$args
+  fsar_args <- fsar_format$pandoc$args
+
+  expect_true(any(grepl("frontmatter-inject\\.lua$", resdoc_args)))
+  expect_false(any(grepl("frontmatter-inject\\.lua$", fsar_args)))
+})

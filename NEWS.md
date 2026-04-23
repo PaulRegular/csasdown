@@ -1,5 +1,9 @@
 # csasdown development version
 
+## csasdown 0.0.0.90021
+
+* Add a resdoc-only frontmatter Lua filter that injects styled metadata blocks with deterministic markers for title, authors, address, citations, and abstract, plus tests for style assignment and markdown fidelity.
+
 ## csasdown 0.0.0.90020
 
 * Fix resdoc frontmatter region and year substitution by replacing the

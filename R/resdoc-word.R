@@ -3,11 +3,17 @@
 #' @export
 
 resdoc_docx <- function(...) {
+  frontmatter_filter <- system.file(
+    "rmarkdown", "lua", "frontmatter-inject.lua",
+    package = "csasdown"
+  )
+
   .csasdown_docx_base(
     reference_docx = "resdoc-content-2026.docx",
     link_citations = TRUE,
     template_dir = "csas-docx",
     use_pandoc_highlight = TRUE,
+    lua_filters = frontmatter_filter,
     ...
   )
 }

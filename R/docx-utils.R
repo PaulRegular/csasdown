@@ -1238,6 +1238,7 @@ insert_section_break_after_abstract <- function(docx_path, french = FALSE) {
   link_citations = TRUE,
   template_dir = "csas-docx",
   use_pandoc_highlight = TRUE,
+  lua_filters = character(),
   ...
 ) {
   dots <- list(...)
@@ -1257,6 +1258,15 @@ insert_section_break_after_abstract <- function(docx_path, french = FALSE) {
       "--lua-filter", lua_filter
     )
   }
+
+  if (length(lua_filters)) {
+    for (extra_filter in lua_filters) {
+      if (nzchar(extra_filter)) {
+        default_pandoc_args <- c(default_pandoc_args, "--lua-filter", extra_filter)
+      }
+    }
+  }
+
   if (use_pandoc_highlight) {
     default_pandoc_args <- c(default_pandoc_args, get_pandoc_highlight_arg())
   }

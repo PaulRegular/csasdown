@@ -515,3 +515,41 @@ test_that("leading whitespace is trimmed from YAML-style input", {
 
   unlink(c(temp_doc, temp_dir), recursive = TRUE)
 })
+
+test_that("frontmatter Lua filter preserves markdown fidelity in injected metadata", {
+  skip_on_cran()
+
+  filter_path <- system.file("rmarkdown", "lua", "frontmatter-inject.lua", package = "csasdown")
+  expect_true(file.exists(filter_path))
+
+  input <- tempfile(fileext = ".md")
+  output <- tempfile(fileext = ".md")
+
+  writeLines(c(
+    "---",
+    "title: \"Analysis of *Sebastes alutus*\"",
+    "authors: \"First A.^1^ and Second B.^2^\"",
+    "citations: \"DFO. *Sebastes alutus*^1^.\"",
+    "---",
+    "",
+    "Body"
+  ), input)
+
+  rmarkdown::pandoc_convert(
+    input = input,
+    to = "markdown",
+    from = "markdown",
+    output = output,
+    options = c("--lua-filter", filter_path)
+  )
+
+  out <- paste(readLines(output, warn = FALSE), collapse = "\n")
+
+  expect_match(out, "\\*Sebastes alutus\\*")
+  expect_match(out, "\\^1\\^")
+  expect_match(out, "\\^2\\^")
+  expect_match(out, "\\[\\[CSAS-FM-START:citations\\]\\]")
+  expect_match(out, "\\[\\[CSAS-FM-END:citations\\]\\]")
+
+  unlink(c(input, output), force = TRUE)
+})
