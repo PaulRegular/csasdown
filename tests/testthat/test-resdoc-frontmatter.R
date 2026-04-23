@@ -31,13 +31,17 @@ test_that("frontmatter Lua filter injects styled metadata blocks with determinis
 
   writeLines(c(
     "---",
-    "title: Population trends",
+    "english_title: Population trends",
+    "french_title: Tendances de la population",
     "authors:",
     "  - Alice A.^1^",
     "  - Bob B.^2^",
-    "address: Pacific Region\\\\Fisheries and Oceans Canada",
-    "citations: \"DFO. *Population trends*. 2026.\"",
-    "abstract: Summary *text*.",
+    "english_address: Pacific Region\\\\Fisheries and Oceans Canada",
+    "french_address: Région du Pacifique\\\\Pêches et Océans Canada",
+    "english_citations: \"DFO. *Population trends*. 2026.\"",
+    "french_citations: \"MPO. *Tendances de la population*. 2026.\"",
+    "english_abstract: Summary *text*.",
+    "french_abstract: Résumé *texte*.",
     "---",
     "",
     "# Intro",
@@ -69,6 +73,10 @@ test_that("frontmatter Lua filter injects styled metadata blocks with determinis
   expect_match(out, 'custom-style="Cover: Author"', fixed = TRUE)
   expect_match(out, 'custom-style="Cover: Address"', fixed = TRUE)
   expect_match(out, 'custom-style="citation"', fixed = TRUE)
+  expect_match(out, "Population trends", fixed = TRUE)
+  expect_match(out, "Tendances de la population", fixed = TRUE)
+  expect_match(out, "Région du Pacifique", fixed = TRUE)
+  expect_match(out, "Résumé", fixed = TRUE)
 
   unlink(c(input, output), force = TRUE)
 })

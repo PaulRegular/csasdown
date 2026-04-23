@@ -59,6 +59,40 @@ local function meta_to_markdown(value)
   return pandoc.utils.stringify(value)
 end
 
+local function first_non_nil(meta, keys)
+  for _, key in ipairs(keys) do
+    local value = meta[key]
+    if value ~= nil then
+      return value
+    end
+  end
+  return nil
+end
+
+local function combine_non_nil(meta, keys)
+  local values = {}
+  for _, key in ipairs(keys) do
+    local value = meta[key]
+    if value ~= nil then
+      table.insert(values, value)
+    end
+  end
+
+  if #values == 0 then
+    return nil
+  end
+
+  if #values == 1 then
+    return values[1]
+  end
+
+  local joined = {}
+  for _, value in ipairs(values) do
+    table.insert(joined, meta_to_markdown(value))
+  end
+  return pandoc.MetaString(table.concat(joined, "\n\n"))
+end
+
 local function styled_block(kind, markdown)
   if markdown == nil or markdown == "" then
     return {}
@@ -78,17 +112,14 @@ end
 
 function Pandoc(doc)
   local meta = doc.meta
-  local authors_value = meta.authors
-  if authors_value == nil then
-    authors_value = meta.author
-  end
+  local authors_value = first_non_nil(meta, { "authors", "author" })
 
   local fields = {
-    { key = "title", value = meta.title },
+    { key = "title", value = combine_non_nil(meta, { "title", "english_title", "french_title" }) },
     { key = "authors", value = authors_value },
-    { key = "address", value = meta.address },
-    { key = "citations", value = meta.citations },
-    { key = "abstract", value = meta.abstract }
+    { key = "address", value = combine_non_nil(meta, { "address", "english_address", "french_address" }) },
+    { key = "citations", value = combine_non_nil(meta, { "citations", "english_citations", "french_citations" }) },
+    { key = "abstract", value = combine_non_nil(meta, { "abstract", "english_abstract", "french_abstract" }) }
   }
 
   local injected = {}

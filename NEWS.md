@@ -1,5 +1,9 @@
 # csasdown development version
 
+## csasdown 0.0.0.90022
+
+* Fix resdoc frontmatter Lua injection to read bilingual YAML keys (`english_*`/`french_*`) used by templates, ensuring title/address/citations/abstract marker blocks are generated during render.
+
 ## csasdown 0.0.0.90021
 
 * Add a resdoc-only frontmatter Lua filter that injects styled metadata blocks with deterministic markers for title, authors, address, citations, and abstract, plus tests for style assignment and markdown fidelity.
