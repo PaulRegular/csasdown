@@ -1,5 +1,48 @@
 # csasdown development version
 
+## csasdown 0.0.0.90029
+
+* Update `move_text()` to preserve hard paragraph returns by replacing the
+  bookmark-containing paragraph with moved paragraph blocks (instead of
+  converting moved paragraphs to run-level line breaks).
+
+## csasdown 0.0.0.90028
+
+* Rework `move_text()` bookmark replacement to follow the run-level insertion
+  approach used by `replace_bookmarks_with_markdown()`, preventing invalid
+  block-level XML insertion that can make Word files fail to open.
+
+## csasdown 0.0.0.90027
+
+* Fix `move_text()` output corruption by replacing the bookmark-containing
+  paragraph with moved block content, avoiding invalid paragraph nesting inside
+  bookmarks that could cause Word open errors.
+
+## csasdown 0.0.0.90026
+
+* Fix `move_text()` marker-boundary detection to avoid false "Marker order is
+  invalid" failures by locating marker text first and then resolving enclosing
+  paragraph bounds.
+
+## csasdown 0.0.0.90025
+
+* Update `move_text()` tests to use `inst/csas-docx/resdoc-frontmatter-english2.docx`
+  so movement is validated against a real frontmatter template bookmark layout.
+
+## csasdown 0.0.0.90024
+
+* Update `move_text()` to move marker-delimited blocks within the same `.docx`
+  file by relocating source marker ranges directly into bookmark locations in
+  that document.
+* Update `move_text()` tests to validate within-document movement behavior.
+
+## csasdown 0.0.0.90023
+
+* Add internal `move_text()` DOCX helper to move marker-delimited rendered
+  blocks into target bookmarks while removing source marker regions and
+  preserving package styles/numbering in both rezipped documents.
+* Add tests for multi-paragraph movement and missing-marker error handling.
+
 ## csasdown 0.0.0.90022
 
 * Fix resdoc frontmatter injection to target the first non-`index.Rmd` content
