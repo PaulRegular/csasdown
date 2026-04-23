@@ -124,3 +124,33 @@ test_that("move_text errors when markers are missing", {
     "Could not find both START:title and END:title markers."
   )
 })
+
+test_that("move_text finds markers split across runs", {
+  template <- testthat::test_path("../../inst/csas-docx/resdoc-frontmatter-english2.docx")
+  expect_true(file.exists(template))
+  docx <- tempfile(fileext = ".docx")
+  file.copy(template, docx, overwrite = TRUE)
+
+  start_marker <- officer::fpar(
+    officer::ftext("START:", prop = officer::fp_text(bold = TRUE)),
+    officer::ftext("title")
+  )
+  end_marker <- officer::fpar(
+    officer::ftext("END:", prop = officer::fp_text(italic = TRUE)),
+    officer::ftext("title")
+  )
+
+  doc <- officer::read_docx(docx) |>
+    officer::cursor_end() |>
+    officer::body_add_fpar(start_marker, style = "Normal") |>
+    officer::body_add_par("Moved from split marker paragraph", style = "Normal") |>
+    officer::body_add_fpar(end_marker, style = "Normal")
+  print(doc, target = docx)
+
+  expect_no_error(csasdown:::move_text(docx, c(title = "title")))
+
+  doc_xml <- read_document_xml(docx)
+  expect_false(grepl("START:title", doc_xml, fixed = TRUE))
+  expect_false(grepl("END:title", doc_xml, fixed = TRUE))
+  expect_true(grepl("Moved from split marker paragraph", doc_xml, fixed = TRUE))
+})

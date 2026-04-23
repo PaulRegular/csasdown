@@ -1,5 +1,10 @@
 # csasdown development version
 
+## csasdown 0.0.0.90031
+
+* Fix `move_text()` marker detection to handle START/END tags split across
+  multiple Word runs within the same paragraph.
+
 ## csasdown 0.0.0.90030
 
 * Rework `add_resdoc_word_frontmatter2()` to assemble frontmatter and content

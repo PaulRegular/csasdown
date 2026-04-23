@@ -1030,28 +1030,36 @@ move_text <- function(docx_path, moves) {
   doc_xml <- paste(readLines(xml_path, warn = FALSE), collapse = "")
 
   find_paragraph_bounds <- function(xml, marker_text, min_pos = 1L) {
-    marker_positions <- gregexpr(marker_text, xml, fixed = TRUE)[[1]]
-    if (identical(marker_positions[1], -1L)) {
+    paragraphs <- gregexpr("(?s)<w:p\\b.*?</w:p>", xml, perl = TRUE)[[1]]
+    if (identical(paragraphs[1], -1L)) {
       return(NULL)
     }
-    marker_positions <- marker_positions[marker_positions >= min_pos]
-    if (!length(marker_positions)) {
-      return(NULL)
+    paragraph_lengths <- attr(paragraphs, "match.length")
+
+    decode_xml_entities <- function(text) {
+      text <- gsub("&lt;", "<", text, fixed = TRUE)
+      text <- gsub("&gt;", ">", text, fixed = TRUE)
+      text <- gsub("&quot;", "\"", text, fixed = TRUE)
+      text <- gsub("&apos;", "'", text, fixed = TRUE)
+      gsub("&amp;", "&", text, fixed = TRUE)
     }
-    marker_pos <- marker_positions[[1]]
-    prefix <- substr(xml, 1L, marker_pos)
-    para_starts <- gregexpr("<w:p\\b", prefix, perl = TRUE)[[1]]
-    if (identical(para_starts[1], -1L)) {
-      return(NULL)
+
+    for (i in seq_along(paragraphs)) {
+      para_start <- paragraphs[[i]]
+      if (para_start < min_pos) {
+        next
+      }
+      para_end <- para_start + paragraph_lengths[[i]] - 1L
+      para_xml <- substr(xml, para_start, para_end)
+      para_text <- gsub("<[^>]+>", "", para_xml, perl = TRUE)
+      para_text <- decode_xml_entities(para_text)
+      if (!grepl(marker_text, para_text, fixed = TRUE)) {
+        next
+      }
+      return(c(start = para_start, end = para_end))
     }
-    para_start <- max(para_starts)
-    suffix <- substr(xml, marker_pos, nchar(xml))
-    para_end_rel <- regexpr("</w:p>", suffix, fixed = TRUE)[1]
-    if (identical(para_end_rel, -1L)) {
-      return(NULL)
-    }
-    para_end <- marker_pos + para_end_rel + nchar("</w:p>") - 2L
-    c(start = para_start, end = para_end)
+
+    NULL
   }
 
   apply_par_style <- function(block_xml, style_id) {
