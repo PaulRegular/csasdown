@@ -57,6 +57,22 @@ render <- function(
     return(render_sar(config_file = config_file, validate_bibliography = FALSE, ...))
   }
 
+  if (type == "resdoc") {
+    build_resdoc_frontmatter_and_merge(
+      index_fn = "index.Rmd",
+      yaml_fn = config_file,
+      verbose = verbose,
+      ...
+    )
+
+    options(csasdown_current_appendix = NULL)
+    unlink(file.path("_book", "reference-keys.txt"))
+
+    cli_alert_success("Render complete!")
+    cli_alert_success(positive_affirmation())
+    return(invisible())
+  }
+
   output_options <- list(pandoc_args = c("--metadata=title:", "--metadata=abstract:"))
 
   cli_inform("Rendering document with bookdown...")
@@ -73,9 +89,7 @@ render <- function(
   file.rename(book_filename, file.path("_book", book_filename))
   cli_alert_success("Moved output to _book/{book_filename}")
 
-  if (type == "resdoc") {
-    add_resdoc_word_frontmatter2("index.Rmd", yaml_fn = config_file, verbose = verbose, keep_files = FALSE)
-  } else if (type == "techreport") {
+  if (type == "techreport") {
     add_techreport_word_frontmatter("index.Rmd", yaml_fn = config_file, verbose = verbose, keep_files = FALSE)
   } else if (type == "sr") {
     add_sr_end_matter("index.Rmd", yaml_fn = config_file, verbose = verbose, keep_files = FALSE)

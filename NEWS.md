@@ -1,5 +1,12 @@
 # csasdown development version
 
+## csasdown 0.0.0.90021
+
+* Refactor resdoc frontmatter assembly into a single orchestration pipeline with
+  pandoc-backed frontmatter rendering, marker-based text moves into bookmarks,
+  deterministic source restoration/cleanup, and faster final merge behavior for
+  large documents.
+
 ## csasdown 0.0.0.90020
 
 * Fix resdoc frontmatter region and year substitution by replacing the
