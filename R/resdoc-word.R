@@ -206,7 +206,14 @@ inject_resdoc_frontmatter_text <- function(index_fn = "index.Rmd", yaml_fn = "_b
   address <- if (french) x$french_address else x$english_address
 
   y <- yaml::read_yaml(yaml_fn)
-  first_rmd <- y$rmd_files[[1]]
+  rmd_files <- unlist(y$rmd_files, use.names = FALSE)
+  rmd_files <- rmd_files[!is.na(rmd_files)]
+  if (length(rmd_files) == 0) {
+    stop(sprintf("No rmd_files found in '%s'.", yaml_fn))
+  }
+  is_index <- tolower(basename(rmd_files)) == "index.rmd"
+  target_candidates <- rmd_files[!is_index]
+  first_rmd <- if (length(target_candidates) > 0) target_candidates[[1]] else rmd_files[[1]]
 
   original_lines <- readLines(first_rmd, warn = FALSE)
   if (length(original_lines) == 0) {
@@ -253,6 +260,7 @@ inject_resdoc_frontmatter_text <- function(index_fn = "index.Rmd", yaml_fn = "_b
     suffix <- if (next_h1_i <= length(processed_lines)) processed_lines[next_h1_i:length(processed_lines)] else character()
     processed_lines <- c(
       processed_lines[seq_len(heading_i - 1)],
+      processed_lines[[heading_i]],
       abstract_tagged,
       suffix
     )

@@ -1,5 +1,11 @@
 # csasdown development version
 
+## csasdown 0.0.0.90022
+
+* Fix resdoc frontmatter injection to target the first non-`index.Rmd` content
+  file from `_bookdown.yml`, and preserve the `# ABSTRACT` heading while still
+  adding abstract tags to avoid downstream abstract extraction regressions.
+
 ## csasdown 0.0.0.90021
 
 * Add resdoc pre-processing that injects YAML frontmatter text and abstract tags
