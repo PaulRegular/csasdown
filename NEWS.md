@@ -1,5 +1,9 @@
 # csasdown development version
 
+## csasdown 0.0.0.90023
+
+* Simplify resdoc frontmatter injection by wrapping the key frontmatter values in deterministic markers without language-specific styling, so downstream document assembly can relocate and style those sections in one place.
+
 ## csasdown 0.0.0.90022
 
 * Improve the resdoc frontmatter Lua injector so the content build consistently injects deterministic frontmatter markers and bilingual metadata with language-appropriate styles during render, backed by focused unit and content-build tests.

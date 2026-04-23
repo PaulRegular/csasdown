@@ -1,20 +1,18 @@
 local START_PREFIX = "START:"
 local END_PREFIX = "END:"
 
-local STYLE_MAP_EN = {
-  title = "Cover: Document title",
-  authors = "Cover: Author",
-  address = "Cover: Address",
-  citations = "citation",
-  abstract = "Body Text"
-}
-
-local STYLE_MAP_FR = {
-  title = "Couverture : titre du document",
-  authors = "Couverture : auteurs",
-  address = "Couverture : adresse",
-  citations = "citation",
-  abstract = "Body Text"
+local FRONTMATTER_KEYS = {
+  "title",
+  "authors",
+  "address",
+  "english_authors_list",
+  "year_english_reference1",
+  "year_english_reference",
+  "english_title",
+  "french_authors_list",
+  "year_french_reference1",
+  "year_french_reference",
+  "french_title"
 }
 
 local function marker_block(kind, phase)
@@ -48,14 +46,6 @@ local function meta_to_markdown(value)
     return pandoc.write(pandoc.Pandoc(value), "markdown")
   end
 
-  if t == "MetaString" then
-    return tostring(value)
-  end
-
-  if t == "MetaBool" then
-    return tostring(value)
-  end
-
   if t == "MetaList" then
     local parts = {}
     for _, item in ipairs(value) do
@@ -69,106 +59,57 @@ end
 
 local function first_non_nil(meta, keys)
   for _, key in ipairs(keys) do
-    local value = meta[key]
-    if value ~= nil then
-      return value
+    if meta[key] ~= nil then
+      return meta[key]
     end
   end
   return nil
 end
 
-local function meta_bool(value)
-  if value == nil then
-    return false
+local function frontmatter_value(meta, key)
+  if key == "title" then
+    return first_non_nil(meta, { "title", "english_title", "french_title" })
   end
 
-  local lowered = pandoc.utils.stringify(value):lower()
-  return lowered == "true" or lowered == "yes" or lowered == "1"
+  if key == "authors" then
+    return first_non_nil(meta, { "authors", "author" })
+  end
+
+  if key == "address" then
+    return first_non_nil(meta, { "address", "english_address", "french_address" })
+  end
+
+  if key == "year_english_reference1" or key == "year_english_reference" or key == "year_french_reference1" or key == "year_french_reference" then
+    return meta.year
+  end
+
+  return meta[key]
 end
 
-local function is_french(meta)
-  if meta_bool(meta.french) then
-    return true
-  end
+local function wrapped_blocks(key, value)
+  local out = { marker_block(key, "start") }
+  local markdown = meta_to_markdown(value)
 
-  local output = meta.output
-  if output == nil then
-    return false
-  end
-
-  local function has_french_true(value)
-    local value_type = pandoc.utils.type(value)
-
-    if value_type == "MetaMap" then
-      if meta_bool(value.french) then
-        return true
-      end
-
-      for _, nested in pairs(value) do
-        if has_french_true(nested) then
-          return true
-        end
-      end
-    elseif value_type == "MetaList" then
-      for _, nested in ipairs(value) do
-        if has_french_true(nested) then
-          return true
-        end
-      end
+  if markdown ~= "" then
+    local parsed = pandoc.read(markdown, "markdown")
+    for _, block in ipairs(parsed.blocks) do
+      table.insert(out, block)
     end
-
-    return false
   end
 
-  return has_french_true(output)
-end
-
-local function styled_block(kind, markdown, style_map)
-  if markdown == nil or markdown == "" then
-    return {}
-  end
-
-  local parsed = pandoc.read(markdown, "markdown")
-  local style = style_map[kind]
-  local out = { marker_block(kind, "start") }
-
-  if #parsed.blocks > 0 then
-    table.insert(out, pandoc.Div(parsed.blocks, pandoc.Attr("", {}, { ["custom-style"] = style })))
-  end
-
-  table.insert(out, marker_block(kind, "end"))
+  table.insert(out, marker_block(key, "end"))
   return out
 end
 
 function Pandoc(doc)
-  local meta = doc.meta
-  local french = is_french(meta)
-  local style_map = french and STYLE_MAP_FR or STYLE_MAP_EN
-  local authors_value = first_non_nil(meta, { "authors", "author" })
-  local title_keys = french and { "french_title", "title", "english_title" } or { "english_title", "title", "french_title" }
-  local address_keys = french and { "french_address", "address", "english_address" } or { "english_address", "address", "french_address" }
-  local citation_keys = french and { "french_citations", "citations", "english_citations" } or { "english_citations", "citations", "french_citations" }
-  local abstract_keys = french and { "french_abstract", "abstract", "english_abstract" } or { "english_abstract", "abstract", "french_abstract" }
-
-  local fields = {
-    { key = "title", value = first_non_nil(meta, title_keys) },
-    { key = "authors", value = authors_value },
-    { key = "address", value = first_non_nil(meta, address_keys) },
-    { key = "citations", value = first_non_nil(meta, citation_keys) },
-    { key = "abstract", value = first_non_nil(meta, abstract_keys) }
-  }
-
   local injected = {}
-  for _, field in ipairs(fields) do
-    local markdown = meta_to_markdown(field.value)
-    local blocks = styled_block(field.key, markdown, style_map)
+
+  for _, key in ipairs(FRONTMATTER_KEYS) do
+    local value = frontmatter_value(doc.meta, key)
+    local blocks = wrapped_blocks(key, value)
     for _, block in ipairs(blocks) do
       table.insert(injected, block)
     end
-  end
-
-  if #injected == 0 then
-    return doc
   end
 
   local merged = {}
