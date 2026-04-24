@@ -1,5 +1,12 @@
 # csasdown development version
 
+## csasdown 0.0.0.90022
+
+* Refactor resdoc abstract handling to a pre-render Rmd preprocessing step that
+  extracts/removes abstract content before main content render, renders a
+  standalone `tmp-abstract.docx`, and injects it during frontmatter assembly.
+  Remove the old Word-level abstract extraction/removal helpers.
+
 ## csasdown 0.0.0.90021
 
 * Optimize bookmark markdown replacement by vectorizing conversions through a 

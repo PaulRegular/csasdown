@@ -58,6 +58,29 @@ render <- function(
   }
 
   output_options <- list(pandoc_args = c("--metadata=title:", "--metadata=abstract:"))
+  abstract_state <- NULL
+  if (type == "resdoc") {
+    abstract_state <- preprocess_resdoc_abstract(config_file)
+    on.exit({
+      if (!is.null(abstract_state)) {
+        writeLines(abstract_state$source_content, abstract_state$source_file)
+      }
+    }, add = TRUE)
+    if (!is.null(abstract_state)) {
+      writeLines(c(
+        'book_filename: "tmp-abstract"',
+        'rmd_files: ["tmp-abstract.Rmd"]',
+        "delete_merged_file: true"
+      ), "tmp-abstract-bookdown.yml")
+      bookdown::render_book("tmp-abstract.Rmd",
+        config_file = "tmp-abstract-bookdown.yml",
+        output_format = resdoc_docx(),
+        envir = parent.frame(n = 2L),
+        output_options = output_options,
+        quiet = TRUE
+      )
+    }
+  }
 
   cli_inform("Rendering document with bookdown...")
   bookdown::render_book("index.Rmd",

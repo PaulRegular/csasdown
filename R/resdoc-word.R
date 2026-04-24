@@ -50,51 +50,25 @@ fix_missing_namespaces <- function(docx_path) {
 }
 
 
-#' Extract abstract body text from an officer Word document
-#'
-#' Extracts the paragraph text between the first and second Heading 1
-#' sections in a Word document represented as an `rdocx` object from
-#' the `officer` package (assumes the abstract is the first section).
-#'
-#' @param doc An `rdocx` object created by `officer::read_docx()`.
-#'
-#' @return A character vector containing abstract paragraphs.
-#'
-#' @noRd
-extract_abstract <- function(doc) {
+preprocess_resdoc_abstract <- function(yaml_fn = "_bookdown.yml") {
+  y <- yaml::read_yaml(yaml_fn)
+  rmd_files <- y$rmd_files
+  first_content_fn <- rmd_files[!grepl("^index\\.Rmd$", rmd_files)][[1]]
 
-  s <- officer::docx_summary(doc)
-
-  h1_idx <- s$doc_index[!is.na(s$style_name) & s$style_name == "heading 1"]
-
-  abstract_text <- s$text[s$doc_index > h1_idx[1] & s$doc_index < h1_idx[2]]
-
-  abstract_text
-}
-
-#' Remove abstract section from an officer Word document
-#'
-#' Removes the first Heading 1 section (assumed to be the abstract)
-#' from an `rdocx` object created by `officer::read_docx()`.
-#'
-#' @param doc An `rdocx` object created by `officer::read_docx()`.
-#'
-#' @return An `rdocx` object with the abstract section removed.
-#'
-#' @noRd
-remove_abstract <- function(doc) {
-
-  s <- officer::docx_summary(doc)
-
-  h1_idx <- s$doc_index[!is.na(s$style_name) & s$style_name == "heading 1"]
-
-  doc <- officer::cursor_begin(doc)
-
-  for (i in seq_len(h1_idx[2])) {
-    doc <- officer::body_remove(doc)
+  content <- readLines(first_content_fn, warn = FALSE)
+  heading_idx <- grep("^#\\s+", content)
+  if (length(heading_idx) < 2) {
+    return(NULL)
   }
 
-  doc
+  abstract_lines <- content[heading_idx[1]: (heading_idx[2] - 1)]
+  writeLines(abstract_lines, "tmp-abstract.Rmd")
+  writeLines(content[-(heading_idx[1]: (heading_idx[2] - 1))], first_content_fn)
+
+  list(
+    source_file = first_content_fn,
+    source_content = content
+  )
 }
 
 
@@ -146,19 +120,11 @@ add_resdoc_word_frontmatter2 <- function(index_fn, yaml_fn = "_bookdown.yml", ve
     officer::cursor_reach(keyword = toc_keyword) |>
     officer::body_add_toc()
 
-  # add abstract
-  content_with_abstract <- officer::read_docx(book_filename)
-  abstract_pars <- extract_abstract(content_with_abstract)
-
   frontmatter_with_abstract <- frontmatter_with_toc |>
-    officer::cursor_reach(keyword = abstract_keyword) |>
-    officer::body_add_par(abstract_pars[1], style = "Body Text")
-
-  if (length(abstract_pars) > 1) {
-    for (i in 2:length(abstract_pars)) {
-      frontmatter_with_abstract <- frontmatter_with_abstract |>
-        officer::body_add_par(abstract_pars[i], style = "Body Text")
-    }
+    officer::cursor_reach(keyword = abstract_keyword)
+  if (file.exists("tmp-abstract.docx")) {
+    frontmatter_with_abstract <- frontmatter_with_abstract |>
+      officer::body_add_docx(src = "tmp-abstract.docx", pos = "on")
   }
 
   print(frontmatter_with_abstract, target = "tmp-frontmatter.docx")
@@ -166,7 +132,7 @@ add_resdoc_word_frontmatter2 <- function(index_fn, yaml_fn = "_bookdown.yml", ve
   # fix missing namespaces
   fix_missing_namespaces("tmp-frontmatter.docx")
 
-  content <- remove_abstract(content_with_abstract) |>
+  content <- officer::read_docx(book_filename) |>
     officer::docx_set_settings(even_and_odd_headers = FALSE)
 
   # FIXME: can we avoid writing here to save time?
@@ -184,7 +150,7 @@ add_resdoc_word_frontmatter2 <- function(index_fn, yaml_fn = "_bookdown.yml", ve
 
   if (!keep_files) {
     unlink(c(
-      "tmp-content.docx", "tmp-frontmatter-with-toc.docx"
+      "tmp-content.docx", "tmp-frontmatter-with-toc.docx", "tmp-abstract.docx", "tmp-abstract.Rmd", "tmp-abstract-bookdown.yml"
     ))
   }
 
